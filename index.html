@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bathroom 1.02 in 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working screen — model viewport on top, preset views overlaid, key measurements underneath */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --fg:#1d2422; --muted:#5d6763; --line:#d8ddd9;
+  --accent:#2f6b5f; --accent-fg:#ffffff; --chip:#e7ecea;
+  --font-ui:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1c2220; --fg:#e6ebe8; --muted:#9aa6a1; --line:#2e3734;
+  --accent:#6fb5a4; --accent-fg:#0f1513; --chip:#26302d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1c2220; --fg:#e6ebe8; --muted:#9aa6a1; --line:#2e3734;
+  --accent:#6fb5a4; --accent-fg:#0f1513; --chip:#26302d; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 28px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 18px}
+h1{font-size:1.45rem;font-weight:700;margin:0;letter-spacing:-0.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:0;font-size:.92rem}
+.stage{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#e9e7e2;
+  height:clamp(340px,62vw,74vh);touch-action:none}
+.stage canvas{display:block;width:100%;height:100%;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;pointer-events:none}
+.group{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto}
+button,.toggle{font:500 .85rem var(--font-ui);border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  border-radius:999px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+button:disabled{opacity:.55;cursor:not-allowed}
+button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:focus-visible,.toggle:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.toggle input{accent-color:var(--accent);margin:0}
+.hint{position:absolute;left:10px;bottom:10px;font-size:.78rem;color:#3d4542;background:rgba(255,255,255,.82);padding:4px 9px;border-radius:6px;pointer-events:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.card h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px;font-weight:600}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+dt{color:var(--muted)} dd{margin:0;font-family:var(--font-data);font-size:.86rem;font-variant-numeric:tabular-nums}
+ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.err{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#3d4542;background:#ece9e4}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Bathroom 1.02 in 3D</h1>
+    <p class="sub">Draft 4, to scale in cm. Drag to look around, pick a view to jump.</p>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="bar">
+      <div class="group" role="group" aria-label="Views">
+        <button type="button" data-view="dollhouse" aria-pressed="true">Overview</button>
+        <button type="button" data-view="door" aria-pressed="false">From the door</button>
+        <button type="button" data-view="shower" aria-pressed="false">Into the shower</button>
+        <button type="button" data-view="basin" aria-pressed="false">At the basin</button>
+        <button type="button" data-view="wc" aria-pressed="false">At the WC</button>
+        <button type="button" data-view="top" aria-pressed="false">Top view</button>
+      </div>
+      <div class="group">
+        <label class="toggle"><input type="checkbox" id="tglGlass" checked> Glass panel</label>
+        <label class="toggle"><input type="checkbox" id="tglCeil" checked> Ceiling</label>
+        <button type="button" id="btnVR" disabled>Enter VR</button>
+      </div>
+    </div>
+    <div class="hint" id="hint">Drag: turn · Scroll or pinch: move/zoom · Shift-drag or two fingers: pan</div>
+  </div>
+  <p class="sub" id="vrNote">Checking for a VR headset…</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Room and shower</h2>
+      <dl>
+        <dt>Room</dt><dd>207 × 231–233, ceiling ±242</dd>
+        <dt>Door</dt><dd>75 clear, opens to landing</dd>
+        <dt>Shower</dt><dd>95 × 95 inside, open to the south</dd>
+        <dt>Glass</dt><dd>900 × 1900, 8 mm satin, black</dd>
+        <dt>Drain</dt><dd>wall channel on party wall</dd>
+        <dt>Thermostat</dt><dd>party wall, centre 45, h 105</dd>
+        <dt>Shower set</dt><dd>wall rail + hand shower, no rain head</dd>
+      </dl>
+    </section>
+    <section class="card">
+      <h2>WC and basin</h2>
+      <dl>
+        <dt>WC</dt><dd>centre 40 from window wall</dd>
+        <dt>WC box</dt><dd>78 high, tiled, 56 wide</dd>
+        <dt>Shelf above WC</dt><dd>top at 170, 56 × 20</dd>
+        <dt>Counter</dt><dd>top 78, second plank at 30</dd>
+        <dt>Basin</dt><dd>oval 60 × 38, centre 168 from door wall</dd>
+        <dt>Radiator</dt><dd>60 × 150 on the inner wall</dd>
+      </dl>
+    </section>
+    <section class="card">
+      <h2>Simplified in this model</h2>
+      <ul>
+        <li>Tile colour and the 7.5 × 30 size are taken from your reference photo.</li>
+        <li>Walls white, floor dim ochre; the 60 × 60 floor tile and the exact shade are placeholders.</li>
+        <li>Floor slope, the 2 cm skew of the door wall and the WC drain are left out.</li>
+        <li>Light and reflections are approximate; satin glass is shown as frosted.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>In VR (Meta Quest browser)</h2>
+      <ul>
+        <li>Real size: 1 m in VR is 1 m in the room, at your own eye height.</li>
+        <li>Left stick walks, right stick turns in 30° steps.</li>
+        <li>Hold the trigger, point at the floor, release to jump there.</li>
+        <li>A: next spot · B: glass on/off · X: ceiling on/off · Y: leave VR.</li>
+        <li>Clear about 1 × 1 m of real floor; the walls in VR are not real.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(function(){
+const stage=document.getElementById('stage');
+if(!window.THREE){const d=document.createElement('div');d.className='err';d.textContent='The 3D library could not load, so the model cannot be shown here.';stage.appendChild(d);return;}
+let renderer;
+try{renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});}
+catch(e){const d=document.createElement('div');d.className='err';d.textContent='This browser has WebGL switched off, so the 3D model cannot be shown.';stage.appendChild(d);return;}
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.xr.enabled=true;
+stage.insertBefore(renderer.domElement,stage.firstChild);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#e9e7e2');
+
+// ---------- room constants (cm): x east, y up, z south ----------
+const RW=207,RD=233,RH=242,GX=112,GLEN=90,GH=190,WCZ=193,BZ=168,WIN0=79,WIN1=212;
+let seed=7;function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;}
+function canvasTex(wcm,hcm,ppc,draw){const c=document.createElement('canvas');c.width=Math.max(4,Math.round(wcm*ppc));c.height=Math.max(4,Math.round(hcm*ppc));const g=c.getContext('2d');g.scale(ppc,ppc);draw(g,wcm,hcm);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;}
+function herring(wcm,hcm,off){return canvasTex(wcm,hcm,7,(g,w,h)=>{
+  g.fillStyle='#d9ddd8';g.fillRect(0,0,w,h);
+  const L=30,Wd=7.5,gr=0.25;g.save();g.translate(off||0,0);g.translate(w/2,h/2);g.rotate(Math.PI/4);
+  const R=Math.hypot(w,h);
+  function brick(x0,y0,bw,bh){const hue=168+rnd()*10,sat=14+rnd()*12,lig=48+rnd()*16;
+    const gd=g.createLinearGradient(x0,y0,x0+bw,y0+bh);gd.addColorStop(0,`hsl(${hue},${sat}%,${lig+7}%)`);gd.addColorStop(0.5,`hsl(${hue},${sat}%,${lig}%)`);gd.addColorStop(1,`hsl(${hue},${sat+4}%,${lig-6}%)`);
+    g.fillStyle=gd;g.fillRect(x0+gr,y0+gr,bw-2*gr,bh-2*gr);
+    g.fillStyle=`rgba(255,255,255,${0.10+rnd()*0.18})`;g.fillRect(x0+gr+bw*0.15,y0+gr+bh*0.15,(bw-2*gr)*0.25,(bh-2*gr)*0.2);}
+  const N=Math.ceil(2*R/Wd)+4,M=Math.ceil(2*R/L)+4;
+  for(let i=-M;i<=M;i++)for(let n=-N;n<=N;n++){const hx=n*Wd+i*L,hy=n*Wd-i*L;if(Math.abs(hx)>R+L||Math.abs(hy)>R+L)continue;
+    brick(hx,hy,L,Wd);brick(L+n*Wd+i*L,(n+1)*Wd-L-i*L,Wd,L);}
+  g.restore();});}
+function shade(hex,v){const c=new THREE.Color(hex);c.offsetHSL(0,0,v);return '#'+c.getHexString();}
+function tiles(wcm,hcm,tw,th,base,grout,vari){return canvasTex(wcm,hcm,3,(g,w,h)=>{g.fillStyle=grout;g.fillRect(0,0,w,h);
+  for(let y=0;y<h;y+=th)for(let x=0;x<w;x+=tw){g.fillStyle=shade(base,(rnd()-0.5)*vari);g.fillRect(x+0.15,y+0.15,tw-0.3,th-0.3);}});}
+function oak(wcm,hcm){return canvasTex(wcm,hcm,6,(g,w,h)=>{g.fillStyle='#b48f68';g.fillRect(0,0,w,h);
+  for(let i=0;i<220;i++){const y=rnd()*h;g.strokeStyle=`rgba(${90+rnd()*40},${60+rnd()*30},${35+rnd()*20},${0.15+rnd()*0.25})`;g.lineWidth=0.15+rnd()*0.4;g.beginPath();g.moveTo(0,y);
+    for(let x=0;x<=w;x+=5)g.lineTo(x,y+Math.sin(x/17+i)*0.8);g.stroke();}});}
+const M=(o)=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.85,metalness:0},o));
+const tileM=(w,h,o)=>M({map:herring(w,h,o),roughness:0.25});
+const paint=M({color:'#f4f3ef'}),white=M({color:'#f7f7f5',roughness:0.25}),black=M({color:'#1d1d1f',roughness:0.45,metalness:0.4});
+const ceramic=M({color:'#fbfbfa',roughness:0.12});
+const oakT=oak(60,140);oakT.wrapS=oakT.wrapT=THREE.RepeatWrapping;oakT.repeat.set(1/60,1/140);const oakM=M({map:oakT,roughness:0.55});
+function plane(w,h,mat,pos,rotY){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(...pos);m.rotation.y=rotY||0;m.receiveShadow=true;scene.add(m);return m;}
+function box(x0,x1,y0,y1,z0,z1,mat,cast=true){const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0),mat);m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);m.castShadow=cast;m.receiveShadow=true;scene.add(m);return m;}
+
+// floor + ceiling
+const fl=plane(RW,RD,M({map:tiles(RW,RD,60,60,'#a07f42','#866a3a',0.04),roughness:0.6}),[RW/2,0,RD/2]);fl.rotation.x=-Math.PI/2;
+const ceil=plane(RW,RD,M({color:'#f4f3f0'}),[RW/2,RH,RD/2]);ceil.rotation.x=Math.PI/2;
+// north wall (door wall)
+plane(6,RH,paint,[3,RH/2,0]);plane(75,RH-201.5,paint,[43.5,(RH+201.5)/2,0]);plane(GX-81,RH,paint,[(81+GX)/2,RH/2,0]);
+plane(189-GX,RH,tileM(189-GX,RH),[(GX+189)/2,RH/2,0.05]);
+box(0,6,0,207,-10,0.5,white);box(81,87,0,207,-10,0.5,white);box(6,81,201.5,207,-10,0.5,white);
+plane(75,201.5,M({color:'#c9c3b8'}),[43.5,100.75,-140]);
+const lf=plane(75,140,M({color:'#a99a85'}),[43.5,0.1,-70]);lf.rotation.x=-Math.PI/2;
+plane(140,201.5,M({color:'#d8d2c8'}),[6,100.75,-70],Math.PI/2);plane(140,201.5,M({color:'#d0cabf'}),[81,100.75,-70],-Math.PI/2);
+// kolf
+plane(19.5,RH,tileM(19.5,RH),[189,RH/2,9.75],-Math.PI/2);plane(18,RH,tileM(18,RH,5),[198,RH/2,19.5]);
+// party wall
+plane(95-19.5,RH,tileM(95-19.5,RH,3),[RW,RH/2,(19.5+95)/2],-Math.PI/2);plane(RD-95,RH,paint,[RW,RH/2,(95+RD)/2],-Math.PI/2);
+// window wall
+plane(RW,WIN0,tileM(RW,WIN0),[RW/2,WIN0/2,RD-0.05],Math.PI);plane(RW,RH-WIN1,paint,[RW/2,(RH+WIN1)/2,RD],Math.PI);
+const sky=canvasTex(100,100,2,(g,w,h)=>{const gd=g.createLinearGradient(0,0,0,h);gd.addColorStop(0,'#cfe3f2');gd.addColorStop(0.7,'#eef4f6');gd.addColorStop(1,'#dfe6e0');g.fillStyle=gd;g.fillRect(0,0,w,h);});
+plane(RW,WIN1-WIN0,new THREE.MeshBasicMaterial({map:sky}),[RW/2,(WIN0+WIN1)/2,RD+8],Math.PI);
+box(0,RW,WIN0,WIN0+6,RD,RD+8,white);box(0,RW,WIN1-6,WIN1,RD,RD+8,white);box(0,6,WIN0,WIN1,RD,RD+8,white);box(RW-6,RW,WIN0,WIN1,RD,RD+8,white);box(RW/2-3,RW/2+3,WIN0,WIN1,RD,RD+8,white);
+box(0,RW,WIN0-1.5,WIN0+0.5,RD-4,RD+1,M({color:'#d7d3cc'}));
+// inner (west) wall, no tile strip behind the basin
+plane(RD,RH,paint,[0,RH/2,RD/2],Math.PI/2);
+// radiator
+box(1,4,15,165,23,25,white);box(1,4,15,165,81,83,white);for(let y=20;y<165;y+=6.5)box(2,5,y,y+2.2,23,83,white);
+// counter: two parallel oak planks with diagonal end
+function plank(top){const sh=new THREE.Shape();sh.moveTo(0,100);sh.lineTo(20,100);sh.lineTo(45,143);sh.lineTo(45,RD);sh.lineTo(0,RD);sh.lineTo(0,100);
+  const g=new THREE.ExtrudeGeometry(sh,{depth:4,bevelEnabled:false});g.rotateX(Math.PI/2);g.translate(0,top,0);const m=new THREE.Mesh(g,oakM);m.castShadow=true;m.receiveShadow=true;scene.add(m);}
+plank(78);plank(30);
+// oval vessel basin, centred on the plank
+const prof=[[0,0],[12,0],[15.5,3],[18.4,8],[19,14],[17.6,14],[16.8,9],[13,4.5],[0,3.6]].map(p=>new THREE.Vector2(p[0],p[1]));
+const bg=new THREE.LatheGeometry(prof,64);bg.scale(1,1,30/19);const bm=new THREE.Mesh(bg,ceramic);bm.position.set(23.5,78,BZ);bm.castShadow=true;scene.add(bm);
+// trap
+const trap=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,44,16),M({color:'#c9ccd0',roughness:0.2,metalness:0.8}));trap.position.set(23.5,56,BZ);scene.add(trap);
+// wall tap, mirror, light
+box(0,15,104,106.5,BZ-1.25,BZ+1.25,black);box(13,15,99,106.5,BZ-1.25,BZ+1.25,black);box(0,3,108,112,BZ+4,BZ+7,black);
+const mir=canvasTex(50,80,4,(g,w,h)=>{const gd=g.createLinearGradient(0,0,w,h);gd.addColorStop(0,'#dfe5e8');gd.addColorStop(0.5,'#b9c3c8');gd.addColorStop(1,'#d5dadc');g.fillStyle=gd;g.fillRect(0,0,w,h);});
+plane(50,80,M({map:mir,roughness:0.05,metalness:0.3}),[0.4,155,BZ],Math.PI/2);
+box(0,1,115,195,BZ-25.5,BZ-24.5,black,false);box(0,1,115,195,BZ+24.5,BZ+25.5,black,false);box(0,1,114.5,115.5,BZ-25.5,BZ+25.5,black,false);box(0,1,194.5,195.5,BZ-25.5,BZ+25.5,black,false);
+box(0,6,199,203,BZ-22,BZ+22,M({color:'#fff8e8',emissive:'#fff1d0',emissiveIntensity:0.9}),false);
+// WC box tiled in herringbone (faces: +x,-x,+y,-y,+z,-z)
+{const side=tileM(20,78,2),front=tileM(56,78,4),top=tileM(20,56,1),plain=paint;
+ const m=new THREE.Mesh(new THREE.BoxGeometry(20,78,56),[plain,front,top,plain,side,tileM(20,78,6)]);m.position.set(197,39,WCZ);m.castShadow=true;m.receiveShadow=true;scene.add(m);}
+box(193,201,78,78.6,WCZ-12,WCZ+12,black,false);
+// shelf above WC, top at 170, as wide as the box
+box(187,RW,167,170,WCZ-28,WCZ+28,oakM);
+// pot facing west
+function dshape(r,len){const s=new THREE.Shape();s.moveTo(0,-r);s.lineTo(-(len-r),-r);s.absarc(-(len-r),0,r,-Math.PI/2,-3*Math.PI/2,true);s.lineTo(0,r);s.lineTo(0,-r);return s;}
+function ext(s,y0,y1,mat){const g=new THREE.ExtrudeGeometry(s,{depth:y1-y0,bevelEnabled:true,bevelThickness:1,bevelSize:1,bevelSegments:3,curveSegments:32});g.rotateX(-Math.PI/2);g.translate(187,y0,WCZ);const m=new THREE.Mesh(g,mat);m.castShadow=true;scene.add(m);}
+ext(dshape(15,44),24,32,ceramic);ext(dshape(18,53),31,39.5,ceramic);ext(dshape(18,53),40,41.5,white);
+// shower fittings (matt black)
+box(201,206,0,0.4,21,93,M({color:'#3b3e42',roughness:0.4,metalness:0.6}),false);
+box(201,206.9,102,109,30,60,black);box(203,205,110,205,52,54,black);box(198,207,160,164,48,58,black);
+{const hs=new THREE.Group();const h1=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.1,20,16),black);h1.position.y=-10;hs.add(h1);
+ const h2=new THREE.Mesh(new THREE.CylinderGeometry(5.5,5.5,2,32),black);h2.position.set(0,2,0);h2.rotation.z=Math.PI/2;hs.add(h2);
+ hs.position.set(197,172,53);hs.rotation.z=0.25;hs.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(hs);}
+// glass panel
+const glassT=canvasTex(GLEN,GH,4,(g,w,h)=>{g.fillStyle='rgba(240,243,241,0.93)';g.fillRect(0,0,w,h);g.fillStyle='rgba(20,20,22,0.97)';const b=2.5;g.fillRect(0,0,w,b);g.fillRect(0,h-b,w,b);g.fillRect(0,0,b,h);g.fillRect(w-b,0,b,h);});
+const glass=new THREE.Group();
+const gp=new THREE.Mesh(new THREE.PlaneGeometry(GLEN,GH),new THREE.MeshStandardMaterial({map:glassT,transparent:true,roughness:0.3,emissive:'#ffffff',emissiveIntensity:0.18,side:THREE.DoubleSide,depthWrite:false}));
+gp.position.set(GX,GH/2+0.5,GLEN/2);gp.rotation.y=Math.PI/2;gp.renderOrder=5;glass.add(gp);
+const prof2=new THREE.Mesh(new THREE.BoxGeometry(3.5,GH,3.5),black);prof2.position.set(GX,GH/2,1.75);glass.add(prof2);
+const st=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,46.7,12),black);st.position.set(GX+16.5,GH-2,16.5);st.rotation.z=Math.PI/2;st.rotation.y=Math.PI/4;glass.add(st);
+scene.add(glass);
+// ceiling lamp + lights
+const lamp=new THREE.Mesh(new THREE.CylinderGeometry(12,12,3,40),M({color:'#ffffff',emissive:'#fff6e6',emissiveIntensity:1}));lamp.position.set(70,RH-1.5,160);scene.add(lamp);
+scene.add(new THREE.HemisphereLight('#ffffff','#b8b2a8',1.1));
+const pl=new THREE.PointLight('#fff3e2',1.3,0,0);pl.position.set(70,RH-15,160);scene.add(pl);
+const dl=new THREE.DirectionalLight('#fffaf0',1.2);dl.position.set(120,330,RD+260);dl.target.position.set(100,40,120);scene.add(dl.target);
+dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);Object.assign(dl.shadow.camera,{left:-200,right:200,top:200,bottom:-200,near:10,far:900});dl.shadow.bias=-0.0005;scene.add(dl);
+const pl2=new THREE.PointLight('#ffffff',0.5,0,0);pl2.position.set(160,200,60);scene.add(pl2);
+
+// all room geometry lives in one group (cm); in VR it is scaled to metres
+const world=new THREE.Group();while(scene.children.length)world.add(scene.children[0]);scene.add(world);
+
+// ---------- camera + controls ----------
+const camera=new THREE.PerspectiveCamera(60,1,1,4000);
+const dolly=new THREE.Group();dolly.add(camera);scene.add(dolly);   // the VR 'rig': moving it moves the viewer
+const target=new THREE.Vector3();
+const views={
+  dollhouse:{pos:[150,360,470],tgt:[103,40,116],fov:45},
+  door:{pos:[40,160,8],tgt:[125,85,233],fov:70,look:true},
+  shower:{pos:[35,155,222],tgt:[165,110,30],fov:68,look:true},
+  basin:{pos:[178,150,135],tgt:[0,100,BZ],fov:66,look:true},
+  wc:{pos:[45,150,150],tgt:[207,90,WCZ],fov:66,look:true},
+  top:{pos:[103.5,560,118],tgt:[103.5,0,116.5],fov:40}
+};
+let look=false;
+function setCam(pos,tgt,fov,isLook){
+  if(isLook){const d=new THREE.Vector3(...tgt).sub(new THREE.Vector3(...pos)).normalize();camera.position.set(...pos);target.copy(camera.position).addScaledVector(d,5);}
+  else{camera.position.set(...pos);target.set(...tgt);}
+  camera.fov=fov;camera.updateProjectionMatrix();camera.lookAt(target);look=!!isLook;}
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let anim=null;
+function goView(name){const v=views[name];if(!v)return;
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===name)));
+  if(reduce){setCam(v.pos,v.tgt,v.fov,v.look);render();return;}
+  const p0=camera.position.clone(),t0=target.clone(),f0=camera.fov;
+  const p1=new THREE.Vector3(...v.pos);let t1=new THREE.Vector3(...v.tgt);
+  if(v.look){const d=t1.clone().sub(p1).normalize();t1=p1.clone().addScaledVector(d,60);}
+  const start=performance.now(),dur=650;
+  anim=(now)=>{let k=Math.min(1,(now-start)/dur);k=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    camera.position.lerpVectors(p0,p1,k);target.lerpVectors(t0,t1,k);camera.fov=f0+(v.fov-f0)*k;camera.updateProjectionMatrix();camera.lookAt(target);
+    if(k>=1){anim=null;setCam(v.pos,v.tgt,v.fov,v.look);}};
+  kick();}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>goView(b.dataset.view)));
+document.getElementById('tglGlass').addEventListener('change',e=>{glass.visible=e.target.checked;render();});
+document.getElementById('tglCeil').addEventListener('change',e=>{ceil.visible=e.target.checked;lamp.visible=e.target.checked;render();});
+
+function sph(){const o=camera.position.clone().sub(target);const r=o.length();return {r,th:Math.atan2(o.x,o.z),ph:Math.acos(Math.max(-1,Math.min(1,o.y/r)))};}
+function rotate(dx,dy){const s=sph();s.th-=dx*0.006;s.ph=Math.max(0.03,Math.min(Math.PI-0.03,s.ph-dy*0.006));
+  const o=new THREE.Vector3(Math.sin(s.ph)*Math.sin(s.th),Math.cos(s.ph),Math.sin(s.ph)*Math.cos(s.th)).multiplyScalar(s.r);
+  if(look){const eye=camera.position.clone();target.copy(eye).sub(o);camera.lookAt(target);}   // turn head in place
+  else{camera.position.copy(target).add(o);camera.lookAt(target);}
+  clearPressed();}
+function pan(dx,dy){const s=sph();const k=Math.max(s.r,120)*0.0016;const right=new THREE.Vector3().setFromMatrixColumn(camera.matrix,0),up=new THREE.Vector3().setFromMatrixColumn(camera.matrix,1);
+  const mv=right.multiplyScalar(-dx*k).add(up.multiplyScalar(dy*k));camera.position.add(mv);target.add(mv);clearPressed();}
+function clampInside(){camera.position.x=Math.max(4,Math.min(RW-4,camera.position.x));camera.position.z=Math.max(4,Math.min(RD-4,camera.position.z));camera.position.y=Math.max(15,Math.min(RH-8,camera.position.y));}
+function zoom(f){if(look){const d=target.clone().sub(camera.position).normalize();const mv=d.multiplyScalar((1-f)*120);camera.position.add(mv);target.add(mv);const t=target.clone().sub(camera.position);clampInside();target.copy(camera.position).add(t);}
+  else{const s=sph();const r=Math.max(40,Math.min(1200,s.r*f));camera.position.copy(target).add(camera.position.clone().sub(target).setLength(r));}
+  camera.lookAt(target);clearPressed();}
+function clearPressed(){document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed','false'));}
+const cv=renderer.domElement;const ptrs=new Map();let pinch0=0;
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);}});
+cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const p=ptrs.get(e.pointerId);const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;anim=null;
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch0>0){zoom(pinch0/d);}pinch0=d;pan(dx/2,dy/2);}
+  else if(e.shiftKey||e.buttons===2||e.buttons===4)pan(dx,dy);else rotate(dx,dy);render();});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,e=>{ptrs.delete(e.pointerId);pinch0=0;}));
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('wheel',e=>{e.preventDefault();anim=null;zoom(Math.exp(e.deltaY*0.0012));render();},{passive:false});
+
+let raf=0;function kick(){if(!raf)raf=requestAnimationFrame(loop);}
+function loop(now){raf=0;if(anim){anim(now);render();kick();}}
+function render(){if(!renderer.xr.isPresenting)renderer.render(scene,camera);}
+function resize(){if(renderer.xr.isPresenting)return;const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix();render();}
+new ResizeObserver(resize).observe(stage);
+// ---------- WebXR: walk through the room at 1:1 scale (Meta Quest browser etc.) ----------
+const xr=renderer.xr,S=0.01,Y=new THREE.Vector3(0,1,0);
+const btnVR=document.getElementById('btnVR'),vrNote=document.getElementById('vrNote');
+const ROOM={x0:0.10,x1:RW*S-0.10,z0:0.10,z1:RD*S-0.10};
+const spots=[
+  {name:'Door',x:0.44,z:0.30,face:[0.35,1]},
+  {name:'Shower',x:1.55,z:0.48,face:[1,0]},
+  {name:'Basin',x:0.82,z:1.68,face:[-1,0]},
+  {name:'WC',x:1.00,z:1.93,face:[1,0]},
+  {name:'Window',x:1.00,z:1.45,face:[0,1]}];
+let noFloor=false,inVR=false,spotIdx=0,pendingSpot=-1,lastT=0,turnLatch=false,aimCtrl=null,aimHit=null;
+const ctrls=[];
+const marker=new THREE.Mesh(new THREE.RingGeometry(0.12,0.16,40),new THREE.MeshBasicMaterial({color:'#2f9e7f',side:THREE.DoubleSide}));
+marker.rotation.x=-Math.PI/2;marker.visible=false;scene.add(marker);
+function helpTex(){return canvasTex(32,20,16,(g,w,h)=>{g.fillStyle='rgba(20,26,24,0.88)';g.fillRect(0,0,w,h);g.fillStyle='#ffffff';
+  g.font='600 2.2px sans-serif';g.fillText('Bathroom 1.02, real size',1.5,3.2);g.font='1.6px sans-serif';
+  ['Left stick: walk','Right stick left/right: turn 30°','Trigger: aim at floor, release to jump','A: next spot (door, shower, basin, WC, window)','B: glass panel on/off   X: ceiling on/off','Y or headset menu: leave VR']
+  .forEach((s,i)=>g.fillText(s,1.5,6.4+i*2.25));});}
+for(let i=0;i<2;i++){
+  const c=xr.getController(i);dolly.add(c);
+  const ray=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]),new THREE.LineBasicMaterial({color:'#ffffff'}));
+  ray.scale.z=0.25;c.add(ray);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.10),M({color:'#30363a'}));body.position.z=0.03;c.add(body);
+  c.userData={ray,src:null,prev:[]};
+  c.addEventListener('connected',e=>{c.userData.src=e.data;
+    if(e.data.handedness==='left'&&!c.userData.help){const p=new THREE.Mesh(new THREE.PlaneGeometry(0.16,0.10),new THREE.MeshBasicMaterial({map:helpTex(),transparent:true}));
+      p.position.set(0,0.07,-0.04);p.rotation.x=-0.7;c.add(p);c.userData.help=p;}});
+  c.addEventListener('disconnected',()=>{c.userData.src=null;});
+  c.addEventListener('selectstart',()=>{aimCtrl=c;});
+  c.addEventListener('selectend',()=>{if(aimCtrl===c&&aimHit)jumpTo(aimHit.x,aimHit.z);aimCtrl=null;aimHit=null;marker.visible=false;});
+  ctrls.push(c);}
+const _h=new THREE.Vector3(),_f=new THREE.Vector3();
+function head(){return _h.setFromMatrixPosition(xr.getCamera().matrixWorld);}
+function fwd(){const e=xr.getCamera().matrixWorld.elements;_f.set(-e[8],0,-e[10]);if(_f.lengthSq()<1e-6)_f.set(0,0,-1);return _f.normalize();}
+function rotateAbout(p,a){const v=dolly.position.clone().sub(p).applyAxisAngle(Y,a);dolly.position.copy(p).add(v);dolly.rotation.y+=a;dolly.updateMatrixWorld(true);}
+function clampX(x){return Math.max(ROOM.x0,Math.min(ROOM.x1,x));}function clampZ(z){return Math.max(ROOM.z0,Math.min(ROOM.z1,z));}
+function jumpTo(x,z){const h=head().clone();dolly.position.x+=clampX(x)-h.x;dolly.position.z+=clampZ(z)-h.z;dolly.updateMatrixWorld(true);}
+function placeAt(sp){const h=head().clone(),f=fwd();rotateAbout(h,Math.atan2(sp.face[0],sp.face[1])-Math.atan2(f.x,f.z));jumpTo(sp.x,sp.z);}
+function pressed(c,i){const gp=c.userData.src&&c.userData.src.gamepad;const now=!!(gp&&gp.buttons[i]&&gp.buttons[i].pressed);const was=!!c.userData.prev[i];c.userData.prev[i]=now;return now&&!was;}
+function xrFrame(){
+  if(!xr.isPresenting)return;
+  const t=performance.now(),dt=lastT?Math.max(0,Math.min(0.1,(t-lastT)/1000)):0;lastT=t;
+  if(pendingSpot>=0&&xr.getCamera().matrixWorld.elements[13]!==0){placeAt(spots[pendingSpot]);pendingSpot=-1;}
+  dolly.updateMatrixWorld(true);
+  for(const c of ctrls){const src=c.userData.src;if(!src||!src.gamepad)continue;const ax=src.gamepad.axes;const sx=ax[2]||0,sy=ax[3]||0;
+    if(src.handedness==='left'){
+      if(Math.hypot(sx,sy)>0.15){const f=fwd().clone(),r=new THREE.Vector3(-f.z,0,f.x),h=head().clone();
+        const mv=r.multiplyScalar(sx).add(f.multiplyScalar(-sy)).multiplyScalar(1.1*dt);
+        dolly.position.x+=clampX(h.x+mv.x)-h.x;dolly.position.z+=clampZ(h.z+mv.z)-h.z;}
+      if(pressed(c,4)){ceil.visible=!ceil.visible;lamp.visible=ceil.visible;document.getElementById('tglCeil').checked=ceil.visible;}
+      if(pressed(c,5)){const s=xr.getSession();if(s)s.end();}
+    }else{
+      if(Math.abs(sx)>0.7&&!turnLatch){turnLatch=true;rotateAbout(head().clone(),sx>0?-Math.PI/6:Math.PI/6);}
+      else if(Math.abs(sx)<0.3)turnLatch=false;
+      if(pressed(c,4)){spotIdx=(spotIdx+1)%spots.length;placeAt(spots[spotIdx]);}
+      if(pressed(c,5)){glass.visible=!glass.visible;document.getElementById('tglGlass').checked=glass.visible;renderer.shadowMap.needsUpdate=true;}
+    }}
+  dolly.updateMatrixWorld(true);
+  for(const c of ctrls){c.userData.ray.scale.z=0.25;}
+  aimHit=null;marker.visible=false;
+  if(aimCtrl){const o=new THREE.Vector3().setFromMatrixPosition(aimCtrl.matrixWorld);const d=new THREE.Vector3(0,0,-1).transformDirection(aimCtrl.matrixWorld);
+    if(d.y<-0.02){const k=-o.y/d.y;if(k<6){const p=o.clone().addScaledVector(d,k);aimCtrl.userData.ray.scale.z=k;
+      if(p.x>-0.05&&p.x<RW*S+0.05&&p.z>-0.05&&p.z<RD*S+0.05){aimHit={x:clampX(p.x),z:clampZ(p.z)};marker.position.set(aimHit.x,0.005,aimHit.z);marker.visible=true;}}}}
+  renderer.render(scene,camera);}
+function setVRScale(on){
+  world.scale.setScalar(on?S:1);
+  camera.near=on?0.05:1;camera.far=on?60:4000;camera.updateProjectionMatrix();
+  const k=on?S:1;Object.assign(dl.shadow.camera,{left:-200*k,right:200*k,top:200*k,bottom:-200*k,near:10*k,far:900*k});dl.shadow.camera.updateProjectionMatrix();
+  renderer.shadowMap.needsUpdate=true;}
+xr.addEventListener('sessionstart',()=>{inVR=true;setVRScale(true);dolly.position.set(0,noFloor?1.6:0,0);dolly.rotation.set(0,0,0);spotIdx=0;pendingSpot=0;lastT=0;
+  renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;btnVR.textContent='Exit VR';});
+xr.addEventListener('sessionend',()=>{inVR=false;renderer.setAnimationLoop(null);setVRScale(false);renderer.shadowMap.autoUpdate=true;
+  dolly.position.set(0,0,0);dolly.rotation.set(0,0,0);dolly.updateMatrixWorld(true);marker.visible=false;btnVR.textContent='Enter VR';
+  goView('door');resize();});
+async function enterVR(){
+  if(xr.isPresenting){const s=xr.getSession();if(s)s.end();return;}
+  let s;
+  try{s=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});}
+  catch(e){vrNote.textContent='The headset did not start VR: '+(e.message||e.name);return;}
+  renderer.setAnimationLoop(xrFrame);   // set before the session starts, so three.js drives it from the headset's frame loop
+  try{noFloor=false;xr.setReferenceSpaceType('local-floor');await xr.setSession(s);}
+  catch(e){vrNote.textContent='VR started without floor tracking, so eye height may be off: '+(e.message||e.name);
+    try{noFloor=true;xr.setReferenceSpaceType('local');await xr.setSession(s);}catch(e2){renderer.setAnimationLoop(null);s.end();}}}
+btnVR.addEventListener('click',enterVR);
+function vrState(ok,msg){btnVR.disabled=!ok;vrNote.textContent=msg;}
+(async()=>{
+  if(!('xr' in navigator)){vrState(false,window.isSecureContext?'VR: this browser has no WebXR. Open the page in the Meta Quest browser.':'VR: WebXR only works on an https page.');return;}
+  try{const ok=await navigator.xr.isSessionSupported('immersive-vr');
+    vrState(ok,ok?'VR headset found. Press Enter VR and put the headset on; the help card sits on your left controller.':'VR: no headset found in this browser. Open the page in the Meta Quest browser.');}
+  catch(e){vrState(false,'VR is blocked here because this page runs inside a frame without VR permission ('+e.name+'). Open the standalone copy in the Quest browser.');}
+})();
+
+const v0=views.dollhouse;setCam(v0.pos,v0.tgt,v0.fov,false);resize();
+window.__bath={goView,views,render,spots,placeAt,jumpTo,dolly,world,setVRScale};
+})();
+</script>
+
+</html>
