@@ -61,12 +61,9 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
   <div class="stage" id="stage">
     <div class="bar">
       <div class="group" role="group" aria-label="Views">
-        <button type="button" data-view="dollhouse" aria-pressed="true">Overview</button>
-        <button type="button" data-view="door" aria-pressed="false">From the door</button>
-        <button type="button" data-view="shower" aria-pressed="false">Into the shower</button>
+        <button type="button" data-view="door" aria-pressed="true">From the door</button>
+        <button type="button" data-view="shower" aria-pressed="false">In front of the shower</button>
         <button type="button" data-view="basin" aria-pressed="false">At the basin</button>
-        <button type="button" data-view="wc" aria-pressed="false">At the WC</button>
-        <button type="button" data-view="top" aria-pressed="false">Top view</button>
       </div>
       <div class="group">
         <button type="button" id="btnVR" disabled>Enter VR</button>
@@ -575,7 +572,7 @@ const views={
   dollhouse:{pos:[150,360,470],tgt:[103,40,116],fov:45},
   door:{pos:[46,165,48],tgt:[168,152,215],fov:72,look:true},
   shower:{pos:[70,165,165],tgt:[170,146,30],fov:70,look:true},
-  basin:{pos:[88,165,BZ],tgt:[0,152,BZ],fov:62,look:true},
+  basin:{pos:[92,163,BZ],tgt:[0,143,BZ],fov:66,look:true},
   wc:{pos:[48,160,92],tgt:[197,112,WCZ+3],fov:68,look:true},
   top:{pos:[103.5,560,118],tgt:[103.5,0,116.5],fov:40}
 };
