@@ -69,13 +69,10 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
         <button type="button" data-view="top" aria-pressed="false">Top view</button>
       </div>
       <div class="group">
-        <label class="toggle"><input type="checkbox" id="tglGlass" checked> Glass panel</label>
-        <label class="toggle"><input type="checkbox" id="tglPrint" checked> Flower print</label>
-        <label class="toggle"><input type="checkbox" id="tglCeil" checked> Ceiling</label>
         <button type="button" id="btnVR" disabled>Enter VR</button>
       </div>
     </div>
-    <div class="hint" id="hint">Drag: turn · Scroll or pinch: move/zoom · Shift-drag or two fingers: pan</div>
+    <div class="hint" id="hint">Drag to look around · W A S D or the arrow keys to walk · two-finger scroll to step forward and back · Shift-drag to slide sideways</div>
   </div>
   <p class="sub" id="vrNote">Checking for a VR headset…</p>
 
@@ -213,51 +210,60 @@ const ceil=plane(RW,RD,M({color:'#f1ece1',emissive:'#f1ece1',emissiveIntensity:0
 plane(6,RH,paint,[3,RH/2,0]);plane(75,RH-201.5,paint,[43.5,(RH+201.5)/2,0]);plane(GX-81,RH,paint,[(81+GX)/2,RH/2,0]);
 plane(189-GX,RH,tileM(189-GX,RH),[(GX+189)/2,RH/2,0.05]);
 box(0,6,0,207,-10,0.5,ral9016);box(81,87,0,207,-10,0.5,ral9016);box(6,81,201.5,207,-10,0.5,ral9016);
-// ---- landing (overloop 1.01) as on the floorplan: winder stairs down against the party wall, doors to 1.03-1.06
-// lit by its own lamp, so unlit materials (no light cost, and it reads as a lit corridor)
+// ---- landing (overloop 1.01) taken from the architect's floorplan, 2026-11-04
+// L-shaped: a strip beside the stair in the bathroom's own column, and a corridor running west past the douche.
+// Walls at z=-7 (to 1.02/1.03), z=-217 (to 1.05/1.06); the stair is 90 wide against the party wall. Ceiling 2800 +P.
+// Lit by its own lamp, so unlit materials (no light cost, and it reads as a lit corridor).
 {const B=c=>new THREE.MeshBasicMaterial({color:c});
- const LW=-150,LN=-218,LS=-93,LX1=207,LH=280,HZ=-10.4,SX=113;   // west wall, north wall, south wall of the main landing, party wall, landing ceiling (2800 on the plan), outer face of the bathroom wall, west edge of the stairwell
+ const LN=-217,HZ=-10.4,LH=280,LX1=207,SX=117,DE=-104,DW=-276,DS=-97,CS=-7.4;   // north wall, outer face of the bathroom wall, ceiling, party wall, west edge of the stair, douche east/west walls, douche south wall, corridor south wall
  const W1=B('#e9e5dd'),W2=B('#e3dfd6'),W3=B('#dcd8cf'),CEIL=B('#f2eee6'),DARK=B('#26262a'),CHR=B('#d2d5d8'),DOORW=B('#f7f6f3'),PAN=B('#eceae5'),TRIM=B('#fdfdfb');
  const flat=(w,h,mat,pos,rotY,rotX)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(...pos);if(rotY)m.rotation.y=rotY;if(rotX)m.rotation.x=rotX;scene.add(m);return m;};
- // laminate floor: the main landing plus the alcove in front of the bathroom door; the stairwell (x 113..207) is open
  const lamT=canvasTex(100,100,3,(g,w,h)=>{g.fillStyle='#b9793f';g.fillRect(0,0,w,h);
    for(let x=0;x<w;x+=12.5){for(let i=0;i<110;i++){const y=rnd()*h;g.strokeStyle=`rgba(${120+rnd()*60},${70+rnd()*35},${30+rnd()*25},${0.10+rnd()*0.2})`;g.lineWidth=0.2+rnd()*0.5;
        g.beginPath();g.moveTo(x+0.4,y);g.lineTo(x+12.1,y+Math.sin(i)*1.2);g.stroke();}
      g.strokeStyle='rgba(60,35,18,0.35)';g.lineWidth=0.3;g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}});
  lamT.wrapS=lamT.wrapT=THREE.RepeatWrapping;
- const floorP=(x0,x1,z0,z1,y)=>{const t=lamT.clone();t.needsUpdate=true;t.repeat.set((x1-x0)/100,(z1-z0)/100);
-   flat(x1-x0,z1-z0,new THREE.MeshBasicMaterial({map:t}),[(x0+x1)/2,y||0.1,(z0+z1)/2],0,-Math.PI/2);};
- floorP(LW,SX,LN,LS);floorP(0,SX,LS,HZ);
- // ceiling (2.80 m here, the bathroom's own is lower)
- flat(LX1-LW,-LN,CEIL,[(LW+LX1)/2,LH,LN/2],0,Math.PI/2);
+ const floorP=(x0,x1,z0,z1)=>{const t=lamT.clone();t.needsUpdate=true;t.repeat.set((x1-x0)/100,(z1-z0)/100);
+   flat(x1-x0,z1-z0,new THREE.MeshBasicMaterial({map:t}),[(x0+x1)/2,0.1,(z0+z1)/2],0,-Math.PI/2);};
+ floorP(DE,SX,LN,DS);floorP(DW,SX,DS,CS);
+ // ceiling over the landing and over the stairwell
+ flat(SX-DE,DS-LN,CEIL,[(DE+SX)/2,LH,(LN+DS)/2],0,Math.PI/2);
+ flat(SX-DW,CS-DS,CEIL,[(DW+SX)/2,LH,(DS+CS)/2],0,Math.PI/2);
+ // (no ceiling over the stair: the attic flight carries on up through the same shaft)
  // walls
- flat(LX1-LW,LH,W1,[(LW+LX1)/2,LH/2,LN]);                                   // north: doors to 1.05 and 1.06
- flat(LS-LN,LH,W2,[LW,LH/2,(LN+LS)/2],Math.PI/2);                           // west: door to 1.04 (douche)
- flat(-LW,LH,W2,[LW/2,LH/2,LS],Math.PI);                                    // south-west: door to 1.03
- flat(LS-HZ,LH,W3,[0,LH/2,(LS+HZ)/2],Math.PI/2);                            // side of 1.03, beside the alcove
- flat(LX1-87,LH,W2,[(87+LX1)/2,LH/2,HZ],Math.PI);                           // bathroom wall, east of the door frame
- flat(87,LH-207,W2,[43.5,(207+LH)/2,HZ],Math.PI);                           // over the bathroom door frame
- flat(-LN+HZ,LH,W3,[LX1,LH/2,(LN+HZ)/2],-Math.PI/2);                        // party wall
- // stairwell down (x 113..207, z -10..-218): straight flight along the party wall, winders at the bottom
- {const tr=[];
-  for(let k=0;k<5;k++)tr.push([new THREE.BoxGeometry(LX1-SX,4,22),[(SX+LX1)/2,-19*(k+1),-200+22*k]]);
-  for(let j=0;j<5;j++){const a=(-75+15*j)*Math.PI/180,r=46;
-    tr.push([new THREE.BoxGeometry(92,4,22).rotateY(-a),[SX+4+r*Math.cos(a),-114-19*j,-14+r*Math.sin(a)]]);}
+ flat(LX1-DE,LH,W1,[(DE+LX1)/2,LH/2,LN]);                                  // north: doors to 1.05 and 1.06
+ flat(DS-LN,LH,W2,[DE,LH/2,(LN+DS)/2],Math.PI/2);                          // east wall of the douche, with its door
+ flat(DE-DW,LH,W2,[(DW+DE)/2,LH/2,DS],Math.PI);                            // south wall of the douche
+ flat(DS-CS,LH,W2,[DW,LH/2,(DS+CS)/2],Math.PI/2);                          // west end of the corridor
+ flat(-DW,LH,W2,[DW/2,LH/2,CS],Math.PI);                                   // south side of the corridor: door to 1.03
+ flat(LX1-87,LH,W2,[(87+LX1)/2,LH/2,HZ],Math.PI);                          // bathroom wall east of the door frame
+ flat(87,LH-207,W2,[43.5,(207+LH)/2,HZ],Math.PI);                          // over the bathroom door frame
+ flat(-LN+CS,LH,W3,[LX1,LH/2,(LN+CS)/2],-Math.PI/2);                       // party wall
+ // stairs down: a half-turn winder stair around a newel at the west edge, as drawn on the plan
+ {const NX=SX+4,NZ=-105,tr=[];
+  for(let i=0;i<15;i++){const a=(80-10.7*i)*Math.PI/180,r=45;
+    tr.push([new THREE.BoxGeometry(82,4,20).rotateY(-a),[NX+r*Math.cos(a),-19*(i+1),NZ+r*Math.sin(a)]]);}
   scene.add(new THREE.Mesh(mergeGeos(tr),B('#efede8')));
-  flat(-LN+HZ,200,DARK,[SX,-100,(LN+HZ)/2],Math.PI/2);                      // closed west side of the shaft below floor level
-  flat(LX1-SX,200,DARK,[(SX+LX1)/2,-100,LN]);flat(LX1-SX,-LN+HZ,DARK,[(SX+LX1)/2,-200,(LN+HZ)/2],0,Math.PI/2);
-  const post=new THREE.Mesh(new THREE.BoxGeometry(9,300,9),B('#6b4a2c'));post.position.set(SX+4.5,-55,-14);scene.add(post);
-  // handrail on the party wall, following the flight down
-  const rail=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,196,10),B('#6b4a2c'));
-  rail.rotation.x=Math.PI/2-Math.atan2(95,170);rail.position.set(LX1-5,-5,-115);scene.add(rail);
-  // balustrade along the open west edge, leaving the top of the flight free
-  {const bl=[];bl.push([new THREE.CylinderGeometry(2.2,2.2,140,10).rotateX(Math.PI/2),[SX+4.5,92,-84]]);
-   [-20,-80,-145].forEach(z=>bl.push([new THREE.BoxGeometry(4,92,4),[SX+4.5,46,z]]));
-   scene.add(new THREE.Mesh(mergeGeos(bl),B('#6b4a2c')));}}
- // white curtain, pushed to the north end of the stair opening
- {const cuT=canvasTex(46,220,2,(g,w,h)=>{for(let x=0;x<w;x+=1){const t=0.5+0.5*Math.sin(x/3.0);g.fillStyle=`rgb(${Math.round(246-28*t)},${Math.round(245-30*t)},${Math.round(239-32*t)})`;g.fillRect(x,0,1.06,h);}});
-  flat(46,LH-45,new THREE.MeshBasicMaterial({map:cuT}),[SX+1.2,(LH+45)/2,-193],-Math.PI/2);
-  scene.add(new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,48,8).rotateX(Math.PI/2),CHR)).position.set(SX+1.2,LH-3,-193);}
+  flat(-LN+CS,290,DARK,[SX,-145,(LN+CS)/2],Math.PI/2);                     // closed sides of the shaft below floor level
+  flat(LX1-SX,290,DARK,[(SX+LX1)/2,-145,LN]);flat(LX1-SX,290,DARK,[(SX+LX1)/2,-145,CS],Math.PI);
+  flat(LX1-SX,-LN+CS,DARK,[(SX+LX1)/2,-290,(LN+CS)/2],0,Math.PI/2);
+  const post=new THREE.Mesh(new THREE.BoxGeometry(10,390,10),B('#6b4a2c'));post.position.set(NX,-100,NZ);scene.add(post);
+  {const bl=[];bl.push([new THREE.CylinderGeometry(2.2,2.2,100,10).rotateX(Math.PI/2),[SX+2,92,-165]]);
+   [-120,-165,-212].forEach(z=>bl.push([new THREE.BoxGeometry(4,92,4),[SX+2,46,z]]));
+   scene.add(new THREE.Mesh(mergeGeos(bl),B('#6b4a2c')));}
+  // the attic flight, straight above the lower one in the same shaft, as Dutch houses do it
+  const up=[];
+  for(let i=0;i<15;i++){const a=(80-10.7*i)*Math.PI/180,r=45;
+    up.push([new THREE.BoxGeometry(82,4,20).rotateY(-a),[NX+r*Math.cos(a),LH+5-19*(i+1),NZ+r*Math.sin(a)]]);}
+  scene.add(new THREE.Mesh(mergeGeos(up),B('#efede8')));
+  const post2=new THREE.Mesh(new THREE.BoxGeometry(10,300,10),B('#6b4a2c'));post2.position.set(NX,LH+150,NZ);scene.add(post2);
+  flat(-LN+CS,300,W3,[SX,LH+150,(LN+CS)/2],Math.PI/2);                     // shaft walls above the landing ceiling
+  flat(LX1-SX,300,W1,[(SX+LX1)/2,LH+150,LN]);flat(LX1-SX,300,W1,[(SX+LX1)/2,LH+150,CS],Math.PI);
+  flat(LX1-SX,-LN+CS,DARK,[(SX+LX1)/2,LH+300,(LN+CS)/2],0,Math.PI/2);}
+ // white curtain at the far end of the stair opening
+ {const cuT=canvasTex(40,230,2,(g,w,h)=>{for(let x=0;x<w;x+=1){const t=0.5+0.5*Math.sin(x/3.0);g.fillStyle=`rgb(${Math.round(246-28*t)},${Math.round(245-30*t)},${Math.round(239-32*t)})`;g.fillRect(x,0,1.06,h);}});
+  flat(40,LH-45,new THREE.MeshBasicMaterial({map:cuT}),[SX+1.2,(LH+45)/2,-195],-Math.PI/2);
+  {const rod=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,42,8).rotateX(Math.PI/2),CHR);rod.position.set(SX+1.2,LH-3,-195);scene.add(rod);}}
  // doors off the landing: white leaf, recessed panels, dark transom window, chrome lever
  const mkDoor=label=>{const g=new THREE.Group(),w=[],p=[],d=[],c=[];
    const push=(a,x0,x1,y0,y1,z0,z1)=>a.push([new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0),[(x0+x1)/2,(y0+y1)/2,(z0+z1)/2]]);
@@ -272,10 +278,10 @@ box(0,6,0,207,-10,0.5,ral9016);box(81,87,0,207,-10,0.5,ral9016);box(6,81,201.5,2
    if(label){const t=canvasTex(22,4.6,20,(g2,w2,h2)=>{g2.clearRect(0,0,w2,h2);g2.fillStyle='#8a6a28';g2.font='600 3.2px sans-serif';g2.textAlign='center';g2.fillText(label,w2/2,3.5);});
      const m=new THREE.Mesh(new THREE.PlaneGeometry(22,4.6),new THREE.MeshBasicMaterial({map:t,transparent:true}));m.position.set(0,150,0.5);g.add(m);}
    scene.add(g);return g;};
- mkDoor(null).position.set(-51,0,LN+4);                                      // 1.05
- mkDoor('IMKE').position.set(46,0,LN+4);                                     // 1.06 slaapkamer
- {const g=mkDoor(null);g.rotation.y=Math.PI/2;g.position.set(LW+4,0,-150);}  // 1.04 douche
- {const g=mkDoor(null);g.rotation.y=Math.PI;g.position.set(-55,0,LS-4);}     // 1.03 slaapkamer
+ mkDoor(null).position.set(-60,0,LN+4);                                     // 1.05 slaapkamer
+ mkDoor('IMKE').position.set(55,0,LN+4);                                    // 1.06 slaapkamer
+ {const g=mkDoor(null);g.rotation.y=-Math.PI/2;g.position.set(DE-4,0,-157);} // 1.04 douche
+ {const g=mkDoor(null);g.rotation.y=Math.PI;g.position.set(-70,0,CS-4);}     // 1.03 slaapkamer
  // the bathroom door itself, swung open outward onto the landing (hinged on the west jamb)
  {const dg=new THREE.Group();dg.position.set(6,0,HZ);dg.rotation.y=1.66;scene.add(dg);
   const w=[],p=[],c=[];
@@ -285,20 +291,21 @@ box(0,6,0,207,-10,0.5,ral9016);box(81,87,0,207,-10,0.5,ral9016);box(6,81,201.5,2
   c.push([new THREE.CylinderGeometry(0.9,0.9,11,10).rotateZ(Math.PI/2),[63.5,104,2.4]]);
   c.push([new THREE.CylinderGeometry(0.9,0.9,11,10).rotateZ(Math.PI/2),[63.5,104,-6]]);
   [[w,DOORW],[p,PAN],[c,CHR]].forEach(([a,m])=>dg.add(new THREE.Mesh(mergeGeos(a),m)));}
- // small chrome D-grab on the landing wall beside the bathroom door
+ // 30 cm chrome D-grab on the landing wall beside the bathroom door
  {const pts=[new THREE.Vector3(100,95,HZ-1.5),new THREE.Vector3(100,100,HZ-7),new THREE.Vector3(100,120,HZ-7),new THREE.Vector3(100,125,HZ-1.5)];
   const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts,false,'centripetal'),40,1.5,12),CHR);scene.add(t);
   [95,125].forEach(y=>{const f=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,1.4,14).rotateX(Math.PI/2),CHR);f.position.set(100,y,HZ-0.8);scene.add(f);});}
  // skirting, ceiling lamp and a framed print
  {const sk=[];const sb=(x0,x1,z0,z1)=>sk.push([new THREE.BoxGeometry(x1-x0,9,z1-z0),[(x0+x1)/2,4.5,(z0+z1)/2]]);
-  sb(LW,LX1,LN,LN+2);sb(LW,LW+2,LN,LS);sb(LW,0,LS-2,LS);sb(0,2,LS,HZ);sb(87,SX,HZ,HZ+2);
+  sb(DE,LX1,LN,LN+2);sb(DE-2,DE,LN,DS);sb(DW,DE,DS-2,DS);sb(DW,DW+2,DS,CS);sb(DW,0,CS-2,CS);sb(87,SX,CS-2,CS);
   scene.add(new THREE.Mesh(mergeGeos(sk),TRIM));}
- {const l=new THREE.Mesh(new THREE.CylinderGeometry(15,15,3,20),B('#fdfcf6'));l.position.set(-30,LH-2,-150);scene.add(l);}
+ {const l=new THREE.Mesh(new THREE.CylinderGeometry(13,13,3,20),B('#fdfcf6'));l.position.set(40,LH-2,-60);scene.add(l);
+  const l2=new THREE.Mesh(new THREE.CylinderGeometry(13,13,3,20),B('#fdfcf6'));l2.position.set(-140,LH-2,-52);scene.add(l2);}
  {const art=canvasTex(34,11,16,(g,w,h)=>{g.fillStyle='#ffffff';g.fillRect(0,0,w,h);
    const cols=['#e23b3b','#e2662f','#e5a92c','#d8cf33','#6fae3c','#2f9b6e','#2d7fae','#3f4fa8','#7a46a3','#b8408a'];
    for(let i=0;i<34;i++){g.fillStyle=cols[i%cols.length];g.globalAlpha=0.55+rnd()*0.45;g.fillRect(2.4+i*0.85,2,0.85,h-4);}g.globalAlpha=1;
    g.strokeStyle='#efeae0';g.lineWidth=1.6;g.strokeRect(0.8,0.8,w-1.6,h-1.6);});
-  flat(37,14,B('#f7f5f0'),[0.6,152,-60],Math.PI/2);flat(34,11,new THREE.MeshBasicMaterial({map:art}),[1,152,-60],Math.PI/2);}
+  flat(37,14,B('#f7f5f0'),[DE+0.6,152,-150],Math.PI/2);flat(34,11,new THREE.MeshBasicMaterial({map:art}),[DE+1,152,-150],Math.PI/2);}
 }
 // kolf
 plane(19.5,RH,tileM(19.5,RH),[189,RH/2,9.75],-Math.PI/2);plane(18,RH,tileM(18,RH,5),[198,RH/2,19.5]);
@@ -566,10 +573,10 @@ const dolly=new THREE.Group();dolly.add(camera);scene.add(dolly);   // the VR 'r
 const target=new THREE.Vector3();
 const views={
   dollhouse:{pos:[150,360,470],tgt:[103,40,116],fov:45},
-  door:{pos:[40,160,8],tgt:[125,85,233],fov:70,look:true},
-  shower:{pos:[35,155,222],tgt:[165,110,30],fov:68,look:true},
-  basin:{pos:[178,150,135],tgt:[0,100,BZ],fov:66,look:true},
-  wc:{pos:[45,150,150],tgt:[207,90,WCZ],fov:66,look:true},
+  door:{pos:[46,165,48],tgt:[168,152,215],fov:72,look:true},
+  shower:{pos:[70,165,165],tgt:[170,146,30],fov:70,look:true},
+  basin:{pos:[88,165,BZ],tgt:[0,152,BZ],fov:62,look:true},
+  wc:{pos:[48,160,92],tgt:[197,112,WCZ+3],fov:68,look:true},
   top:{pos:[103.5,560,118],tgt:[103.5,0,116.5],fov:40}
 };
 let look=false;
@@ -591,15 +598,29 @@ function goView(name){const v=views[name];if(!v)return;
     if(k>=1){anim=null;setCam(v.pos,v.tgt,v.fov,v.look);}};
   kick();}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>goView(b.dataset.view)));
-document.getElementById('tglGlass').addEventListener('change',e=>{glass.visible=e.target.checked;render();});
-document.getElementById('tglPrint').addEventListener('change',e=>{gp.material=e.target.checked?printMat:satinMat;render();});
-document.getElementById('tglCeil').addEventListener('change',e=>{ceil.visible=e.target.checked;lamp.visible=e.target.checked;render();});
+// (the glass / print / ceiling toggles were dropped: the page shows the room as it will be built)
 
 function sph(){const o=camera.position.clone().sub(target);const r=o.length();return {r,th:Math.atan2(o.x,o.z),ph:Math.acos(Math.max(-1,Math.min(1,o.y/r)))};}
-function rotate(dx,dy){const s=sph();s.th-=dx*0.006;s.ph=Math.max(0.03,Math.min(Math.PI-0.03,s.ph-dy*0.006));
-  const o=new THREE.Vector3(Math.sin(s.ph)*Math.sin(s.th),Math.cos(s.ph),Math.sin(s.ph)*Math.cos(s.th)).multiplyScalar(s.r);
-  if(look){const eye=camera.position.clone();target.copy(eye).sub(o);camera.lookAt(target);}   // turn head in place
-  else{camera.position.copy(target).add(o);camera.lookAt(target);}
+function rotate(dx,dy){
+  if(look){                                    // first person: drag the room, the view follows your hand
+    const d=target.clone().sub(camera.position).normalize();
+    let yaw=Math.atan2(d.x,d.z),pitch=Math.asin(Math.max(-1,Math.min(1,d.y)));
+    yaw+=dx*0.0042;pitch=Math.max(-1.15,Math.min(1.15,pitch+dy*0.0042));
+    const cp=Math.cos(pitch);
+    target.copy(camera.position).add(new THREE.Vector3(Math.sin(yaw)*cp,Math.sin(pitch),Math.cos(yaw)*cp).multiplyScalar(5));
+    camera.lookAt(target);}
+  else{const s=sph();s.th-=dx*0.006;s.ph=Math.max(0.03,Math.min(Math.PI-0.03,s.ph-dy*0.006));
+    const o=new THREE.Vector3(Math.sin(s.ph)*Math.sin(s.th),Math.cos(s.ph),Math.sin(s.ph)*Math.cos(s.th)).multiplyScalar(s.r);
+    camera.position.copy(target).add(o);camera.lookAt(target);}
+  clearPressed();}
+// step through the room (first person) or dolly in and out (overview); d in cm, positive is forward
+function step(d,side){const v=target.clone().sub(camera.position);
+  if(look){const f=v.clone();f.y=0;const L=f.length();if(L<1e-6)return;f.multiplyScalar(1/L);
+    const r=new THREE.Vector3(f.z,0,-f.x);
+    camera.position.addScaledVector(f,d).addScaledVector(r,side||0);clampInside();
+    target.copy(camera.position).add(v);camera.lookAt(target);}
+  else{const s=sph(),rr=Math.max(60,Math.min(1600,s.r*Math.exp(-d*0.004)));
+    camera.position.copy(target).add(camera.position.clone().sub(target).setLength(rr));camera.lookAt(target);}
   clearPressed();}
 function pan(dx,dy){const s=sph();const k=Math.max(s.r,120)*0.0016;const right=new THREE.Vector3().setFromMatrixColumn(camera.matrix,0),up=new THREE.Vector3().setFromMatrixColumn(camera.matrix,1);
   const mv=right.multiplyScalar(-dx*k).add(up.multiplyScalar(dy*k));camera.position.add(mv);target.add(mv);clearPressed();}
@@ -615,7 +636,23 @@ cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const p=p
   else if(e.shiftKey||e.buttons===2||e.buttons===4)pan(dx,dy);else rotate(dx,dy);render();});
 ['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,e=>{ptrs.delete(e.pointerId);pinch0=0;}));
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-cv.addEventListener('wheel',e=>{e.preventDefault();anim=null;zoom(Math.exp(e.deltaY*0.0012));render();},{passive:false});
+cv.addEventListener('wheel',e=>{e.preventDefault();anim=null;
+  const px=e.deltaMode===1?e.deltaY*16:e.deltaMode===2?e.deltaY*400:e.deltaY;
+  if(e.ctrlKey)zoom(Math.exp(px*0.006));        // trackpad pinch and ctrl+wheel: zoom
+  else step(-px*0.25);                          // wheel or two-finger scroll: walk forward and back
+  render();},{passive:false});
+// keyboard: walk and turn, which is what a laptop without a mouse is good at
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;
+  const k=e.key.toLowerCase(),big=e.shiftKey?2:1;let hit=true;
+  if(k==='w'||k==='arrowup')step(12*big);
+  else if(k==='s'||k==='arrowdown')step(-12*big);
+  else if(k==='a')step(0,-10*big);
+  else if(k==='d')step(0,10*big);
+  else if(k==='arrowleft')rotate(28*big,0);
+  else if(k==='arrowright')rotate(-28*big,0);
+  else hit=false;
+  if(hit){anim=null;e.preventDefault();render();}});
 
 let raf=0;function kick(){if(!raf)raf=requestAnimationFrame(loop);}
 function loop(now){raf=0;if(anim){anim(now);render();kick();}}
