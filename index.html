@@ -85,8 +85,9 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
       <dl>
         <dt>Room</dt><dd>207 × 231–233, ceiling ±242</dd>
         <dt>Door</dt><dd>75 clear, opens to landing</dd>
-        <dt>Shower</dt><dd>95 × 95 inside, open to the south</dd>
+        <dt>Shower</dt><dd>95 wide × 100 deep, open to the south</dd>
         <dt>Glass</dt><dd>900 × 1900, 8 mm; bar to party wall</dd>
+        <dt>Open corner</dt><dd>10 beside the panel (100 − 90)</dd>
         <dt>Drain</dt><dd>channel, 5 from party wall</dd>
         <dt>Thermostat</dt><dd>party wall, centre 45, h 105</dd>
         <dt>Shower set</dt><dd>wall rail + hand shower, no rain head</dd>
@@ -153,6 +154,7 @@ const scene=new THREE.Scene();scene.background=new THREE.Color('#e9e7e2');
 
 // ---------- room constants (cm): x east, y up, z south ----------
 const RW=207,RD=233,RH=242,GX=112,GLEN=90,GH=190,WCZ=193,BZ=168,WIN0=79,WIN1=212;
+const SHD=100;   // shower depth from the door wall towards the window (the ordered glass panel is 90, so the last 10 is open)
 let seed=7;function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;}
 function canvasTex(wcm,hcm,ppc,draw){const c=document.createElement('canvas');c.width=Math.max(4,Math.round(wcm*ppc));c.height=Math.max(4,Math.round(hcm*ppc));const g=c.getContext('2d');g.scale(ppc,ppc);draw(g,wcm,hcm);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;}
 // Tile textures are DATA, not colour: R = per-tile shade, G = tile (1) or grout (0), B = saturation jitter.
@@ -243,7 +245,7 @@ box(0,6,0,207,-10,0.5,white);box(81,87,0,207,-10,0.5,white);box(6,81,201.5,207,-
 // kolf
 plane(19.5,RH,tileM(19.5,RH),[189,RH/2,9.75],-Math.PI/2);plane(18,RH,tileM(18,RH,5),[198,RH/2,19.5]);
 // party wall
-plane(95-19.5,RH,tileM(95-19.5,RH,3),[RW,RH/2,(19.5+95)/2],-Math.PI/2);plane(RD-95,RH,paint,[RW,RH/2,(95+RD)/2],-Math.PI/2);
+plane(SHD-19.5,RH,tileM(SHD-19.5,RH,3),[RW,RH/2,(19.5+SHD)/2],-Math.PI/2);plane(RD-SHD,RH,paint,[RW,RH/2,(SHD+RD)/2],-Math.PI/2);
 // window wall
 plane(RW,WIN0,tileM(RW,WIN0),[RW/2,WIN0/2,RD-0.05],Math.PI);plane(RW,RH-WIN1,paint,[RW/2,(RH+WIN1)/2,RD],Math.PI);
 // outside: sky dome, ground (house is assumed one storey up, ground 280 below this floor) and a mixed forest
@@ -408,7 +410,7 @@ function dshape(r,len){const s=new THREE.Shape();s.moveTo(0,-r);s.lineTo(-(len-r
 function ext(s,y0,y1,mat){const g=new THREE.ExtrudeGeometry(s,{depth:y1-y0,bevelEnabled:true,bevelThickness:1,bevelSize:1,bevelSegments:3,curveSegments:32});g.rotateX(-Math.PI/2);g.translate(187,y0,WCZ);const m=new THREE.Mesh(g,mat);m.castShadow=true;scene.add(m);}
 ext(dshape(15,44),24,32,ceramic);ext(dshape(18,53),31,39.5,ceramic);ext(dshape(18,53),40,41.5,white);
 // shower fittings in brushed steel: drain grate, bar thermostat (centre 45 from door wall, h 105), rail, hose, hand shower
-box(197,202,0,0.4,21,93,steel,false);   // drain channel, 5 cm clear of the party wall
+box(197,202,0,0.4,21,SHD-2,steel,false);   // drain channel, 5 cm clear of the party wall
 {const C=(r,len,x,y,z,ax)=>{const g=new THREE.CylinderGeometry(r,r,len,32);if(ax==='z')g.rotateX(Math.PI/2);if(ax==='x')g.rotateZ(Math.PI/2);const m=new THREE.Mesh(g,steel);m.position.set(x,y,z);m.castShadow=true;scene.add(m);return m;};
  const TY=105,TXW=200.5;
  C(2.7,20,TXW,TY,45,'z');C(2.85,5.5,TXW,TY,32.3,'z');C(2.85,5.5,TXW,TY,57.7,'z');           // body + two end knobs
@@ -603,7 +605,7 @@ function xrFrame(){
     else{const hw=ray.intersectObjects(paintables,false);if(hw.length){len=hw[0].distance;u.hoverCat=catOf(hw[0]);}}
     u.line.visible=true;u.line.scale.z=len;u.dot.visible=!!(u.hoverSw||u.hoverCat);u.dot.position.set(0,0,-len);}
   xr.updateCamera(camera);
-  {const d=head().distanceTo(mirror.getWorldPosition(_mp));mirror.userData.mono=d>1.2;}   // stereo reflection only up close
+  {const d=head().distanceTo(mirror.getWorldPosition(_mp));if(d<1.3)mirror.userData.mono=false;else if(d>1.7)mirror.userData.mono=true;}
   mirror.userData.prepareXR(renderer,scene);   // reflections first, then the stereo frame
   renderer.render(scene,camera);}
 function setVRScale(on){
