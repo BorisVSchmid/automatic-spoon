@@ -86,7 +86,7 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
         <dt>Room</dt><dd>207 × 231–233, ceiling ±242</dd>
         <dt>Door</dt><dd>75 clear, opens to landing</dd>
         <dt>Shower</dt><dd>95 × 95 inside, open to the south</dd>
-        <dt>Glass</dt><dd>900 × 1900, 8 mm, flower print or satin</dd>
+        <dt>Glass</dt><dd>900 × 1900, 8 mm; bar to party wall</dd>
         <dt>Drain</dt><dd>wall channel on party wall</dd>
         <dt>Thermostat</dt><dd>party wall, centre 45, h 105</dd>
         <dt>Shower set</dt><dd>wall rail + hand shower, no rain head</dd>
@@ -186,6 +186,13 @@ function oak(wcm,hcm){return canvasTex(wcm,hcm,6,(g,w,h)=>{g.fillStyle='#b48f68'
   for(let i=0;i<220;i++){const y=rnd()*h;g.strokeStyle=`rgba(${90+rnd()*40},${60+rnd()*30},${35+rnd()*20},${0.15+rnd()*0.25})`;g.lineWidth=0.15+rnd()*0.4;g.beginPath();g.moveTo(0,y);
     for(let x=0;x<=w;x+=5)g.lineTo(x,y+Math.sin(x/17+i)*0.8);g.stroke();}});}
 const M=(o)=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.85,metalness:0},o));
+// merge a list of [geometry, position] into one geometry: fewer draw calls, which is what a Quest 1 cares about
+function mergeGeos(list){const keys=['position','normal','uv'];let total=0;
+  const parts=list.map(([g,p])=>{const c=g.index?g.toNonIndexed():g.clone();if(p)c.translate(p[0],p[1],p[2]);total+=c.attributes.position.count;return c;});
+  const out=new THREE.BufferGeometry(),arr={};keys.forEach(k=>arr[k]=new Float32Array(total*(k==='uv'?2:3)));
+  let off=0;for(const c of parts){const n=c.attributes.position.count;
+    keys.forEach(k=>{const a=c.attributes[k];if(a)arr[k].set(a.array,off*(k==='uv'?2:3));});off+=n;c.dispose();}
+  keys.forEach(k=>out.setAttribute(k,new THREE.BufferAttribute(arr[k],k==='uv'?2:3)));return out;}
 const tileM=(w,h,o)=>recolourable(M({map:herring(w,h,o),roughness:0.25}),U.tile,U.tileGrout,'tile');
 const paint=M({color:DEF.wall});paint.userData.cat='wall';
 const white=M({color:'#f7f7f5',roughness:0.25}),black=M({color:'#1d1d1f',roughness:0.45,metalness:0.4});
@@ -198,15 +205,41 @@ function box(x0,x1,y0,y1,z0,z1,mat,cast=true){const m=new THREE.Mesh(new THREE.B
 
 // floor + ceiling
 const fl=plane(RW,RD,recolourable(M({map:floorTex(RW,RD,60,60),roughness:0.6}),U.floor,U.floorGrout,'floor'),[RW/2,0,RD/2]);fl.rotation.x=-Math.PI/2;
-const ceil=plane(RW,RD,M({color:'#f1ece1'}),[RW/2,RH,RD/2]);   // RAL 9010 pure white (approx. sRGB #F1ECE1)ceil.rotation.x=Math.PI/2;
+// ceiling in RAL 9010 pure white (approx. sRGB #F1ECE1)
+const ceil=plane(RW,RD,M({color:'#f1ece1',emissive:'#f1ece1',emissiveIntensity:0.42}),[RW/2,RH,RD/2]);ceil.rotation.x=Math.PI/2;
 // north wall (door wall)
 plane(6,RH,paint,[3,RH/2,0]);plane(75,RH-201.5,paint,[43.5,(RH+201.5)/2,0]);plane(GX-81,RH,paint,[(81+GX)/2,RH/2,0]);
 plane(189-GX,RH,tileM(189-GX,RH),[(GX+189)/2,RH/2,0.05]);
 box(0,6,0,207,-10,0.5,white);box(81,87,0,207,-10,0.5,white);box(6,81,201.5,207,-10,0.5,white);
-plane(75,201.5,M({color:'#c9c3b8'}),[43.5,100.75,-140]);
-const lf=plane(75,140,M({color:'#a99a85'}),[43.5,0.1,-70]);lf.rotation.x=-Math.PI/2;
-plane(130,201.5,M({color:'#d8d2c8'}),[6,100.75,-75],Math.PI/2);plane(130,201.5,M({color:'#d0cabf'}),[81,100.75,-75],-Math.PI/2);
-{const lc=plane(75,130,M({color:'#e4e0d8'}),[43.5,201.5,-75]);lc.rotation.x=Math.PI/2;}   // passage ceiling
+// ---- landing seen through the door: lit by its own lamp, so unlit materials (no light cost, and it reads as a lit corridor)
+{const B=c=>new THREE.MeshBasicMaterial({color:c}),HZ=-140;
+ const flat=(w,h,mat,pos,rotY,rotX)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(...pos);if(rotY)m.rotation.y=rotY;if(rotX)m.rotation.x=rotX;scene.add(m);return m;};
+ flat(75,201.5,B('#e8e4dc'),[43.5,100.75,HZ]);
+ flat(130,201.5,B('#e3dfd6'),[6,100.75,-75],Math.PI/2);flat(130,201.5,B('#dcd8cf'),[81,100.75,-75],-Math.PI/2);
+ flat(75,130,B('#eeeae2'),[43.5,201.5,-75],0,Math.PI/2);
+ const lamT=canvasTex(75,140,4,(g,w,h)=>{g.fillStyle='#b9793f';g.fillRect(0,0,w,h);
+   for(let x=0;x<w;x+=12.5){for(let i=0;i<90;i++){const y=rnd()*h;g.strokeStyle=`rgba(${120+rnd()*60},${70+rnd()*35},${30+rnd()*25},${0.10+rnd()*0.2})`;g.lineWidth=0.2+rnd()*0.5;
+       g.beginPath();g.moveTo(x+0.4,y);g.lineTo(x+12.1,y+Math.sin(i)*1.2);g.stroke();}
+     g.strokeStyle='rgba(60,35,18,0.35)';g.lineWidth=0.3;g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}});
+ flat(75,140,new THREE.MeshBasicMaterial({map:lamT}),[43.5,0.1,-70],0,-Math.PI/2);
+ const sk=[];const skb=(x0,x1,z0,z1)=>sk.push([new THREE.BoxGeometry(x1-x0,9,z1-z0),[(x0+x1)/2,4.5,(z0+z1)/2]]);
+ skb(6,8,HZ,-1);skb(79,81,HZ,-1);skb(6,81,HZ,HZ+2);
+ scene.add(new THREE.Mesh(mergeGeos(sk),B('#f4f2ee')));
+ const dw=78,dh=201.5,dx=43.5,DP=HZ+1.5,dr=[];
+ dr.push([new THREE.BoxGeometry(dw,dh,3.6),[dx,dh/2,DP+1.8]]);
+ scene.add(new THREE.Mesh(mergeGeos(dr),B('#f6f5f2')));
+ const fr=[];const fb=(x0,x1,y0,y1)=>fr.push([new THREE.BoxGeometry(x1-x0,y1-y0,2.4),[(x0+x1)/2,(y0+y1)/2,DP+4.6]]);
+ fb(dx-dw/2-4,dx-dw/2,0,dh+4);fb(dx+dw/2,dx+dw/2+4,0,dh+4);fb(dx-dw/2-4,dx+dw/2+4,dh,dh+4);
+ scene.add(new THREE.Mesh(mergeGeos(fr),B('#ffffff')));
+ [[dx-dw/2+9,dx+dw/2-9,24,96],[dx-dw/2+9,dx+dw/2-9,112,184]].forEach(([x0,x1,y0,y1])=>flat(x1-x0,y1-y0,B('#eceae5'),[(x0+x1)/2,(y0+y1)/2,DP+3.7]));
+ {const hd=new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,11,12).rotateZ(Math.PI/2),B('#d7d9db'));hd.position.set(dx+dw/2-9,104,DP+6.5);scene.add(hd);
+  const rose=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,3,14).rotateX(Math.PI/2),B('#d7d9db'));rose.position.set(dx+dw/2-9,104,DP+5);scene.add(rose);}
+ flat(16,3.4,new THREE.MeshBasicMaterial({map:canvasTex(16,3.4,22,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#8a6a28';g.font='600 2.6px sans-serif';g.textAlign='center';g.fillText('IMKE',w/2,2.7);}),transparent:true}),[dx,150,DP+3.8]);
+ const art=canvasTex(34,11,16,(g,w,h)=>{g.fillStyle='#ffffff';g.fillRect(0,0,w,h);
+   const cols=['#e23b3b','#e2662f','#e5a92c','#d8cf33','#6fae3c','#2f9b6e','#2d7fae','#3f4fa8','#7a46a3','#b8408a'];
+   for(let i=0;i<34;i++){g.fillStyle=cols[i%cols.length];g.globalAlpha=0.55+rnd()*0.45;g.fillRect(2.4+i*0.85,2,0.85,h-4);}g.globalAlpha=1;
+   g.strokeStyle='#efeae0';g.lineWidth=1.6;g.strokeRect(0.8,0.8,w-1.6,h-1.6);});
+ flat(37,14,B('#f7f5f0'),[dx,219,HZ+0.3]);flat(34,11,new THREE.MeshBasicMaterial({map:art}),[dx,219,HZ+0.6]);}
 // kolf
 plane(19.5,RH,tileM(19.5,RH),[189,RH/2,9.75],-Math.PI/2);plane(18,RH,tileM(18,RH,5),[198,RH/2,19.5]);
 // party wall
@@ -221,7 +254,7 @@ skyDome.position.set(RW/2,0,RD/2);skyDome.renderOrder=-1;scene.add(skyDome);
 const grassT=canvasTex(256,256,2,(g,w,h)=>{g.fillStyle='#5f7a45';g.fillRect(0,0,w,h);for(let i=0;i<900;i++){const x=rnd()*w,y=rnd()*h,r=4+rnd()*18;const gd=g.createRadialGradient(x,y,0,x,y,r);const l=30+rnd()*14;gd.addColorStop(0,`hsla(${88+rnd()*20},32%,${l}%,0.35)`);gd.addColorStop(1,`hsla(90,30%,${l}%,0)`);g.fillStyle=gd;g.fillRect(x-r,y-r,2*r,2*r);}});
 const grass=plane(14000,14000,new THREE.MeshLambertMaterial({map:grassT}),[RW/2,GROUND,RD/2]);grass.rotation.x=-Math.PI/2;grass.receiveShadow=false;
 grass.material.map.wrapS=grass.material.map.wrapT=THREE.RepeatWrapping;grass.material.map.repeat.set(30,30);
-{const N=420,trunkG=new THREE.CylinderGeometry(0.5,0.7,1,7).translate(0,0.5,0),coneG=new THREE.ConeGeometry(1,1,14).translate(0,0.5,0),ballG=new THREE.IcosahedronGeometry(1,2);
+{const N=420,trunkG=new THREE.CylinderGeometry(0.5,0.7,1,5).translate(0,0.5,0),coneG=new THREE.ConeGeometry(1,1,8).translate(0,0.5,0),ballG=new THREE.IcosahedronGeometry(1,1);
  const trunks=new THREE.InstancedMesh(trunkG,new THREE.MeshLambertMaterial({color:'#5a4634'}),N);
  const cones=new THREE.InstancedMesh(coneG,new THREE.MeshLambertMaterial({color:'#ffffff'}),N*3);
  const balls=new THREE.InstancedMesh(ballG,new THREE.MeshLambertMaterial({color:'#ffffff'}),N*3);
@@ -238,19 +271,22 @@ grass.material.map.wrapS=grass.material.map.wrapT=THREE.RepeatWrapping;grass.mat
    else{const R=H*(0.22+rnd()*0.08);
      for(let k=0;k<3;k++){put(balls,nb,x+(rnd()-0.5)*R*0.8,GROUND+H*0.62+(rnd()-0.2)*R*0.6,z+(rnd()-0.5)*R*0.8,R*(0.6+rnd()*0.35),R*(0.5+rnd()*0.3),R*(0.6+rnd()*0.35),rnd()*6);
        balls.setColorAt(nb++,c.setHSL(0.22+rnd()*0.08,0.35+rnd()*0.2,0.22+rnd()*0.10));}}}
- trunks.count=nt;cones.count=nc;balls.count=nb;[trunks,cones,balls].forEach(o=>{o.instanceMatrix.needsUpdate=true;if(o.instanceColor)o.instanceColor.needsUpdate=true;o.frustumCulled=false;scene.add(o);});}
+ trunks.count=nt;cones.count=nc;balls.count=nb;[trunks,cones,balls].forEach(o=>{o.instanceMatrix.needsUpdate=true;if(o.instanceColor)o.instanceColor.needsUpdate=true;
+   o.boundingSphere=new THREE.Sphere(new THREE.Vector3(RW/2,GROUND+1200,RD+2800),5200);o.frustumCulled=true;scene.add(o);});}
 scene.fog=new THREE.Fog('#d3ddd9',1200,6500);
 box(0,RW,WIN0,WIN0+6,RD,RD+8,white);box(0,RW,WIN1-6,WIN1,RD,RD+8,white);box(0,6,WIN0,WIN1,RD,RD+8,white);box(RW-6,RW,WIN0,WIN1,RD,RD+8,white);box(RW/2-3,RW/2+3,WIN0,WIN1,RD,RD+8,white);
 box(0,RW,WIN0-1.5,WIN0+0.5,RD-4,RD+1,M({color:'#d7d3cc'}));
 // inner (west) wall, no tile strip behind the basin
 plane(RD,RH,paint,[0,RH/2,RD/2],Math.PI/2);
 // radiator
-// towel radiator: 60 wide, 140 tall, bottom at 60; two flat collectors and round bars in groups
-{const RZ0=23,RZ1=83,RY0=60,RY1=200,bar=new THREE.CylinderGeometry(1.1,1.1,RZ1-RZ0-6,14).rotateX(Math.PI/2);
- box(1.5,6.5,RY0,RY1,RZ0,RZ0+3.5,white);box(1.5,6.5,RY0,RY1,RZ1-3.5,RZ1,white);
- box(0,1.5,RY0+8,RY0+11,RZ0+0.5,RZ0+3,white);box(0,1.5,RY1-11,RY1-8,RZ0+0.5,RZ0+3,white);box(0,1.5,RY0+8,RY0+11,RZ1-3,RZ1-0.5,white);box(0,1.5,RY1-11,RY1-8,RZ1-3,RZ1-0.5,white);
+// towel radiator: 60 wide, 140 tall, bottom at 60; built as ONE merged mesh (50 separate bars used to stall the headset)
+{const RZ0=23,RZ1=83,RY0=60,RY1=200,parts=[];
+ const bx=(x0,x1,y0,y1,z0,z1)=>parts.push([new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0),[(x0+x1)/2,(y0+y1)/2,(z0+z1)/2]]);
+ bx(1.5,6.5,RY0,RY1,RZ0,RZ0+3.5);bx(1.5,6.5,RY0,RY1,RZ1-3.5,RZ1);
+ bx(0,1.5,RY0+8,RY0+11,RZ0+0.5,RZ0+3);bx(0,1.5,RY1-11,RY1-8,RZ0+0.5,RZ0+3);bx(0,1.5,RY0+8,RY0+11,RZ1-3,RZ1-0.5);bx(0,1.5,RY1-11,RY1-8,RZ1-3,RZ1-0.5);
  const ys=[];for(let y=RY0+3;y<=RY1-3;){for(let k=0;k<6&&y<=RY1-3;k++){ys.push(y);y+=4.6;}y+=7;}
- ys.forEach(y=>{const b=new THREE.Mesh(bar,white);b.position.set(4.5,y,(RZ0+RZ1)/2);b.castShadow=true;b.receiveShadow=true;scene.add(b);});}
+ ys.forEach(y=>parts.push([new THREE.CylinderGeometry(1.1,1.1,RZ1-RZ0-6,10).rotateX(Math.PI/2),[4.5,y,(RZ0+RZ1)/2]]));
+ const rad=new THREE.Mesh(mergeGeos(parts),white);rad.castShadow=true;rad.receiveShadow=true;scene.add(rad);}
 // counter: two parallel oak planks with diagonal end
 function plank(top){const sh=new THREE.Shape();sh.moveTo(0,100);sh.lineTo(20,100);sh.lineTo(45,143);sh.lineTo(45,RD);sh.lineTo(0,RD);sh.lineTo(0,100);
   const g=new THREE.ExtrudeGeometry(sh,{depth:4,bevelEnabled:false});g.rotateX(Math.PI/2);g.translate(0,top,0);const m=new THREE.Mesh(g,oakM);m.castShadow=true;m.receiveShadow=true;scene.add(m);}
@@ -304,7 +340,10 @@ function makeMirror(w,h,res){
   me.onBeforeRender=function(renderer,scn,camera){
     if(renderer.xr.isPresenting){const cams=renderer.xr.getCamera().cameras;use(camera===cams[1]?1:0);return;}  // VR: textures were prepared before the frame
     prepare(renderer,scn,camera,0);use(0);if(camera.viewport!==undefined)renderer.state.viewport(camera.viewport);};
-  me.userData.prepareXR=function(renderer,scn){const cams=renderer.xr.getCamera().cameras;for(let k=0;k<cams.length&&k<2;k++)prepare(renderer,scn,cams[k],k);};
+  me.userData.mono=true;   // one reflection for both eyes unless you are close enough to notice
+  me.userData.prepareXR=function(renderer,scn){const cams=renderer.xr.getCamera().cameras;
+    if(me.userData.mono||cams.length<2){prepare(renderer,scn,renderer.xr.getCamera(),0);slots[1].rt=slots[0].rt;slots[1].tm=slots[0].tm;return;}
+    for(let k=0;k<2;k++){if(slots[1].rt===slots[0].rt)slots[1]={rt:new THREE.WebGLRenderTarget(res,Math.round(res*h/w),{samples:4,type:THREE.HalfFloatType}),tm:new THREE.Matrix4()};prepare(renderer,scn,cams[k],k);}};
   return me;}
 // existing pine mirror cabinet: 62 wide, 70 high, 20 deep, bottom 33 above the basin rim; mirror door with a 3 cm wooden border
 function woodTex(base,wcm,hcm){return canvasTex(wcm,hcm,6,(g,w,h)=>{g.fillStyle=base;g.fillRect(0,0,w,h);
@@ -315,14 +354,13 @@ const CAB={y0:78+15+33,h:70,w:62,d:20};CAB.y1=CAB.y0+CAB.h;CAB.z0=BZ-CAB.w/2;CAB
 {const {y0,y1,z0,z1}=CAB,F=3;
  box(0,1,y0,y1,z0,z1,pineM);box(0,18,y0,y1,z0,z0+1.8,pineM);box(0,18,y0,y1,z1-1.8,z1,pineM);box(0,18,y1-1.8,y1,z0,z1,pineM);box(0,18,y0,y0+1.8,z0,z1,pineM);
  box(18,20.5,y0,y1,z0,z0+F,pineM);box(18,20.5,y0,y1,z1-F,z1,pineM);box(18,20.5,y0,y0+F,z0+F,z1-F,pineM);box(18,20.5,y1-F,y1,z0+F,z1-F,pineM);}
-const mirror=makeMirror(CAB.w-6,CAB.h-6,768);mirror.position.set(19.4,(CAB.y0+CAB.y1)/2,BZ);mirror.rotation.y=Math.PI/2;scene.add(mirror);
+const mirror=makeMirror(CAB.w-6,CAB.h-6,512);mirror.position.set(19.4,(CAB.y0+CAB.y1)/2,BZ);mirror.rotation.y=Math.PI/2;scene.add(mirror);
 // double socket (two Schuko inserts stacked), on the inner wall just left of the basin, near the window corner, centre 25 above the counter
 {const t=canvasTex(8,15.5,30,(g,w,h)=>{g.fillStyle='#f7f7f4';g.fillRect(0,0,w,h);g.strokeStyle='rgba(0,0,0,0.10)';g.lineWidth=0.12;g.strokeRect(0.1,0.1,w-0.2,h-0.2);
    for(const cy of [h*0.27,h*0.73]){const gd=g.createRadialGradient(4,cy,0.4,4,cy,2.6);gd.addColorStop(0,'#e4e4e0');gd.addColorStop(1,'#cfcfca');g.fillStyle=gd;g.beginPath();g.arc(4,cy,2.6,0,Math.PI*2);g.fill();
      g.fillStyle='#3a3a3a';g.beginPath();g.arc(4-0.95,cy,0.28,0,Math.PI*2);g.arc(4+0.95,cy,0.28,0,Math.PI*2);g.fill();g.fillStyle='#b9b9b4';g.fillRect(3.6,cy-2.6,0.8,0.45);g.fillRect(3.6,cy+2.15,0.8,0.45);}});
  const sock=new THREE.Mesh(new THREE.BoxGeometry(1,15.5,8),[M({map:t,roughness:0.35}),paint,M({color:'#f7f7f4'}),M({color:'#f7f7f4'}),M({color:'#f7f7f4'}),M({color:'#f7f7f4'})]);
  sock.position.set(0.5,103,RD-12);scene.add(sock);}
-box(0,6,199,203,BZ-22,BZ+22,M({color:'#fff8e8',emissive:'#fff1d0',emissiveIntensity:0.9}),false);
 // WC box tiled in herringbone (faces: +x,-x,+y,-y,+z,-z)
 // box runs from 28 north of the WC centre up to the window wall (flush with it)
 {const WB0=WCZ-28,WB1=RD-0.1,WBW=WB1-WB0,front=tileM(WBW,78,4),top=tileM(20,WBW,1),plain=paint;
@@ -401,7 +439,10 @@ const glass=new THREE.Group();
 const gp=new THREE.Mesh(new THREE.PlaneGeometry(GLEN,GH),printMat);
 gp.position.set(GX,GH/2+0.5,GLEN/2);gp.rotation.y=Math.PI/2;gp.renderOrder=5;glass.add(gp);
 const prof2=new THREE.Mesh(new THREE.BoxGeometry(3.5,GH,3.5),black);prof2.position.set(GX,GH/2,1.75);glass.add(prof2);
-const st=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,46.7,12),black);st.position.set(GX+16.5,GH-2,16.5);st.rotation.z=Math.PI/2;st.rotation.y=Math.PI/4;glass.add(st);
+{const SY=GH-6,len=RW-GX;
+ const st=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,len,12).rotateZ(Math.PI/2),black);st.position.set(GX+len/2,SY,GLEN-1.8);glass.add(st);
+ const clamp=new THREE.Mesh(new THREE.BoxGeometry(3.2,4.4,4.4),black);clamp.position.set(GX,SY,GLEN-1.8);glass.add(clamp);
+ const plate=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,1.2,16).rotateZ(Math.PI/2),black);plate.position.set(RW-0.6,SY,GLEN-1.8);glass.add(plate);}
 scene.add(glass);
 // ceiling lamp + lights
 // four recessed ceiling spots, 2700 K (approx. sRGB #ffad66), plus muted daylight from the window
@@ -413,7 +454,7 @@ for(const [sx,sz] of [[52,58],[156,58],[52,176],[156,176]]){
   sp.castShadow=true;sp.shadow.mapSize.set(512,512);sp.shadow.camera.near=2;sp.shadow.camera.far=300;sp.shadow.bias=-0.0008;
   scene.add(sp);scene.add(sp.target);spots3.push(sp);}
 scene.add(lamp);
-scene.add(new THREE.HemisphereLight('#e4ebee','#a8a294',0.6));
+scene.add(new THREE.HemisphereLight('#e4ebee','#b4ae9e',0.75));
 const dl=new THREE.DirectionalLight('#f3f1e8',0.75);dl.position.set(120,330,RD+260);dl.target.position.set(100,40,120);scene.add(dl.target);
 dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);Object.assign(dl.shadow.camera,{left:-200,right:200,top:200,bottom:-200,near:10,far:900});dl.shadow.bias=-0.0005;scene.add(dl);
 
@@ -527,7 +568,7 @@ function buildDisc(){const g=new THREE.Group(),sw=[];
   const lab=new THREE.Mesh(new THREE.PlaneGeometry(0.16,0.022),new THREE.MeshBasicMaterial({transparent:true,toneMapped:false,map:canvasTex(32,4.4,16,(c,w,h)=>{c.fillStyle='rgba(38,42,41,0.9)';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='1.9px sans-serif';c.textAlign='center';c.fillText('pick a colour, then point at floor, tiles or wall',w/2,2.9);})}));
   lab.position.set(0,-0.106,0.002);g.add(lab);
   return {g,sw,sel};}
-const disc=buildDisc();
+const disc=buildDisc();disc.g.scale.setScalar(1.45);
 function selectSwatch(m){disc.sel.position.set(m.position.x,m.position.y,0.004);disc.sel.scale.setScalar(m.userData.size);current=m.userData.col;
   for(const c of ctrls)if(c.userData.tip)c.userData.tip.material.color.set(current||'#ffffff');}
 selectSwatch(disc.sw[disc.sw.length-1]);   // start on "original colours"
@@ -540,7 +581,7 @@ for(let i=0;i<2;i++){
   const body=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.10),M({color:'#30363a'}));body.position.z=0.03;c.add(body);
   c.userData={line,dot,src:null,hoverSw:null,hoverCat:null};
   c.addEventListener('connected',e=>{c.userData.src=e.data;
-    if(e.data.handedness==='left'){c.add(disc.g);disc.g.position.set(0,0.075,-0.05);disc.g.rotation.set(-1.0,0,0);}
+    if(e.data.handedness==='left'){c.add(disc.g);disc.g.position.set(0,0.105,-0.07);disc.g.rotation.set(-1.0,0,0);}
     else{line.visible=true;if(!c.userData.tip){const tip=new THREE.Mesh(new THREE.SphereGeometry(0.011,16,12),unlit(current||'#ffffff'));tip.position.z=-0.025;c.add(tip);c.userData.tip=tip;}}});
   c.addEventListener('disconnected',()=>{c.userData.src=null;});
   c.addEventListener('selectstart',()=>{const u=c.userData;
@@ -548,7 +589,7 @@ for(let i=0;i<2;i++){
     else if(u.hoverCat){setColour(u.hoverCat,current);buzz(c,0.6,50);renderer.shadowMap.needsUpdate=true;}});
   ctrls.push(c);}
 function collectPaintables(){paintables=[];world.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&o!==skyDome&&o!==grass&&o!==gp&&o!==mirror)paintables.push(o);});}
-const _o=new THREE.Vector3(),_d=new THREE.Vector3();
+const _o=new THREE.Vector3(),_d=new THREE.Vector3(),_mp=new THREE.Vector3();
 function catOf(hit){const m=hit.object.material;const mat=Array.isArray(m)?m[hit.face.materialIndex]:m;return mat&&mat.userData?mat.userData.cat||null:null;}
 function xrFrame(){
   if(!xr.isPresenting)return;
@@ -561,17 +602,19 @@ function xrFrame(){
     if(hs.length&&disc.g.parent){u.hoverSw=hs[0].object;u.hoverSw.scale.setScalar(1.3);len=hs[0].distance;}
     else{const hw=ray.intersectObjects(paintables,false);if(hw.length){len=hw[0].distance;u.hoverCat=catOf(hw[0]);}}
     u.line.visible=true;u.line.scale.z=len;u.dot.visible=!!(u.hoverSw||u.hoverCat);u.dot.position.set(0,0,-len);}
-  xr.updateCamera(camera);mirror.userData.prepareXR(renderer,scene);   // reflections first, then the stereo frame
+  xr.updateCamera(camera);
+  {const d=head().distanceTo(mirror.getWorldPosition(_mp));mirror.userData.mono=d>1.2;}   // stereo reflection only up close
+  mirror.userData.prepareXR(renderer,scene);   // reflections first, then the stereo frame
   renderer.render(scene,camera);}
 function setVRScale(on){
   world.scale.setScalar(on?S:1);
   camera.near=on?0.1:1;camera.far=on?150:15000;camera.updateProjectionMatrix();
   scene.fog.near=1200*(on?S:1);scene.fog.far=6500*(on?S:1);
   const k=on?S:1;Object.assign(dl.shadow.camera,{left:-200*k,right:200*k,top:200*k,bottom:-200*k,near:10*k,far:900*k});dl.shadow.camera.updateProjectionMatrix();
-  spots3.forEach(sp=>{sp.shadow.camera.near=2*k;sp.shadow.camera.far=300*k;sp.shadow.camera.updateProjectionMatrix();});
+  spots3.forEach(sp=>{sp.castShadow=!on;sp.shadow.camera.near=2*k;sp.shadow.camera.far=300*k;sp.shadow.camera.updateProjectionMatrix();});   // in VR the four spots light without casting shadows
   renderer.shadowMap.needsUpdate=true;}
 xr.addEventListener('sessionstart',()=>{inVR=true;setVRScale(true);dolly.position.set(0,noFloor?1.6:0,0);dolly.rotation.set(0,0,0);pendingSpot=true;collectPaintables();
-  renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;btnVR.textContent='Exit VR';});
+  renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;try{xr.setFoveation(1);}catch(e){}btnVR.textContent='Exit VR';});
 xr.addEventListener('sessionend',()=>{inVR=false;renderer.setAnimationLoop(null);setVRScale(false);renderer.shadowMap.autoUpdate=true;
   dolly.position.set(0,0,0);dolly.rotation.set(0,0,0);dolly.updateMatrixWorld(true);btnVR.textContent='Enter VR';
   goView('door');resize();});
@@ -580,6 +623,7 @@ async function enterVR(){
   let s;
   try{s=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});}
   catch(e){vrNote.textContent='The headset did not start VR: '+(e.message||e.name);return;}
+  xr.setFramebufferScaleFactor(0.85);   // a Quest 1 is fill-rate bound; 0.85 is barely visible and much faster
   renderer.setAnimationLoop(xrFrame);   // set before the session starts, so three.js drives it from the headset's frame loop
   try{noFloor=false;xr.setReferenceSpaceType('local-floor');await xr.setSession(s);}
   catch(e){vrNote.textContent='VR started without floor tracking, so eye height may be off: '+(e.message||e.name);
