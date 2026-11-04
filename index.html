@@ -87,7 +87,7 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
         <dt>Door</dt><dd>75 clear, opens to landing</dd>
         <dt>Shower</dt><dd>95 × 95 inside, open to the south</dd>
         <dt>Glass</dt><dd>900 × 1900, 8 mm; bar to party wall</dd>
-        <dt>Drain</dt><dd>wall channel on party wall</dd>
+        <dt>Drain</dt><dd>channel, 5 from party wall</dd>
         <dt>Thermostat</dt><dd>party wall, centre 45, h 105</dd>
         <dt>Shower set</dt><dd>wall rail + hand shower, no rain head</dd>
       </dl>
@@ -408,7 +408,7 @@ function dshape(r,len){const s=new THREE.Shape();s.moveTo(0,-r);s.lineTo(-(len-r
 function ext(s,y0,y1,mat){const g=new THREE.ExtrudeGeometry(s,{depth:y1-y0,bevelEnabled:true,bevelThickness:1,bevelSize:1,bevelSegments:3,curveSegments:32});g.rotateX(-Math.PI/2);g.translate(187,y0,WCZ);const m=new THREE.Mesh(g,mat);m.castShadow=true;scene.add(m);}
 ext(dshape(15,44),24,32,ceramic);ext(dshape(18,53),31,39.5,ceramic);ext(dshape(18,53),40,41.5,white);
 // shower fittings in brushed steel: drain grate, bar thermostat (centre 45 from door wall, h 105), rail, hose, hand shower
-box(201,206,0,0.4,21,93,steel,false);
+box(197,202,0,0.4,21,93,steel,false);   // drain channel, 5 cm clear of the party wall
 {const C=(r,len,x,y,z,ax)=>{const g=new THREE.CylinderGeometry(r,r,len,32);if(ax==='z')g.rotateX(Math.PI/2);if(ax==='x')g.rotateZ(Math.PI/2);const m=new THREE.Mesh(g,steel);m.position.set(x,y,z);m.castShadow=true;scene.add(m);return m;};
  const TY=105,TXW=200.5;
  C(2.7,20,TXW,TY,45,'z');C(2.85,5.5,TXW,TY,32.3,'z');C(2.85,5.5,TXW,TY,57.7,'z');           // body + two end knobs
