@@ -2,4 +2,4 @@
 
 Open https://borisvschmid.github.io/automatic-spoon/ in the Meta Quest browser and press **Enter VR**.
 
-Controls in VR: left stick walk, right stick turn, trigger to jump, A next spot, B glass, X ceiling, Y exit.
+In VR: walk around for real. The colour disc sits on your left hand; point with the right controller and pull the trigger to pick a colour, then point at the floor, the wall tiles or a plain wall and pull the trigger to repaint it. The centre swatch restores the original colours.

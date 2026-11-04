@@ -40,6 +40,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 button:focus-visible,.toggle:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 .toggle input{accent-color:var(--accent);margin:0}
+.cols input[type=color]{width:56px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:2px;cursor:pointer}
 .hint{position:absolute;left:10px;bottom:10px;font-size:.78rem;color:#3d4542;background:rgba(255,255,255,.82);padding:4px 9px;border-radius:6px;pointer-events:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
@@ -108,19 +109,28 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
       <h2>Simplified in this model</h2>
       <ul>
         <li>Tile colour and the 7.5 × 30 size are taken from your reference photo.</li>
-        <li>Walls white, floor dim ochre; the 60 × 60 floor tile and the exact shade are placeholders.</li>
+        <li>Floor tile size (60 × 60) is a placeholder; screen colours only approximate real paint and tile.</li>
         <li>Floor slope, the 2 cm skew of the door wall and the WC drain are left out.</li>
         <li>Light and reflections are approximate; satin glass is shown as frosted.</li>
       </ul>
     </section>
     <section class="card">
+      <h2>Colours</h2>
+      <dl class="cols">
+        <dt><label for="col-floor">Floor tiles</label></dt><dd><input type="color" id="col-floor" value="#a07f42"></dd>
+        <dt><label for="col-tile">Wall tiles</label></dt><dd><input type="color" id="col-tile" value="#7da5a0"></dd>
+        <dt><label for="col-wall">Plain walls</label></dt><dd><input type="color" id="col-wall" value="#f4f3ef"></dd>
+        <dt>Ceiling</dt><dd>RAL 9010 (approx.)</dd>
+      </dl>
+      <p style="margin:10px 0 0"><button type="button" id="col-reset">Original colours</button></p>
+    </section>
+    <section class="card">
       <h2>In VR (Meta Quest browser)</h2>
       <ul>
         <li>Real size: 1 m in VR is 1 m in the room, at your own eye height.</li>
-        <li>Left stick walks, right stick turns in 30° steps.</li>
-        <li>Hold the trigger, point at the floor, release to jump there.</li>
-        <li>A: next spot · B: glass print, satin, off · X: ceiling on/off · Y: leave VR.</li>
-        <li>Clear about 1 × 1 m of real floor; the walls in VR are not real.</li>
+        <li>You start just inside the door; walk around for real. Clear the floor first: the VR walls are not there.</li>
+        <li>Colour disc on your left hand: point with the right controller and pull the trigger to pick a colour.</li>
+        <li>Then point at the floor, the tiles or a plain wall and pull the trigger to repaint it. The centre swatch restores the original.</li>
       </ul>
     </section>
   </div>
@@ -144,18 +154,30 @@ const scene=new THREE.Scene();scene.background=new THREE.Color('#e9e7e2');
 const RW=207,RD=233,RH=242,GX=112,GLEN=90,GH=190,WCZ=193,BZ=168,WIN0=79,WIN1=212;
 let seed=7;function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;}
 function canvasTex(wcm,hcm,ppc,draw){const c=document.createElement('canvas');c.width=Math.max(4,Math.round(wcm*ppc));c.height=Math.max(4,Math.round(hcm*ppc));const g=c.getContext('2d');g.scale(ppc,ppc);draw(g,wcm,hcm);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;}
-function herring(wcm,hcm,off){return canvasTex(wcm,hcm,7,(g,w,h)=>{
-  g.fillStyle='#d9ddd8';g.fillRect(0,0,w,h);
+// Tile textures are DATA, not colour: R = per-tile shade, G = tile (1) or grout (0), B = saturation jitter.
+// The actual tile/grout colours come from shared uniforms, so they can be changed live (colour disc in VR, pickers on the page).
+function dataTex(t){t.colorSpace=THREE.NoColorSpace;return t;}
+function herring(wcm,hcm,off){return dataTex(canvasTex(wcm,hcm,7,(g,w,h)=>{
+  g.fillStyle='rgb(128,0,128)';g.fillRect(0,0,w,h);
   const L=30,Wd=7.5,gr=0.25;g.save();g.translate(off||0,0);g.translate(w/2,h/2);g.rotate(Math.PI/4);
   const R=Math.hypot(w,h);
-  function brick(x0,y0,bw,bh){const hue=168+rnd()*10,sat=14+rnd()*12,lig=48+rnd()*16;
-    const gd=g.createLinearGradient(x0,y0,x0+bw,y0+bh);gd.addColorStop(0,`hsl(${hue},${sat}%,${lig+7}%)`);gd.addColorStop(0.5,`hsl(${hue},${sat}%,${lig}%)`);gd.addColorStop(1,`hsl(${hue},${sat+4}%,${lig-6}%)`);
+  function brick(x0,y0,bw,bh){const r=Math.round(128+(rnd()-0.5)*90),b=Math.round(128+(rnd()-0.5)*110);
+    const gd=g.createLinearGradient(x0,y0,x0+bw,y0+bh);gd.addColorStop(0,`rgb(${r+26},255,${b})`);gd.addColorStop(0.5,`rgb(${r},255,${b})`);gd.addColorStop(1,`rgb(${r-22},255,${b})`);
     g.fillStyle=gd;g.fillRect(x0+gr,y0+gr,bw-2*gr,bh-2*gr);
-    g.fillStyle=`rgba(255,255,255,${0.10+rnd()*0.18})`;g.fillRect(x0+gr+bw*0.15,y0+gr+bh*0.15,(bw-2*gr)*0.25,(bh-2*gr)*0.2);}
+    g.fillStyle=`rgba(255,255,${b},${0.10+rnd()*0.18})`;g.fillRect(x0+gr+bw*0.15,y0+gr+bh*0.15,(bw-2*gr)*0.25,(bh-2*gr)*0.2);}
   const N=Math.ceil(2*R/Wd)+4,M=Math.ceil(2*R/L)+4;
   for(let i=-M;i<=M;i++)for(let n=-N;n<=N;n++){const hx=n*Wd+i*L,hy=n*Wd-i*L;if(Math.abs(hx)>R+L||Math.abs(hy)>R+L)continue;
     brick(hx,hy,L,Wd);brick(L+n*Wd+i*L,(n+1)*Wd-L-i*L,Wd,L);}
-  g.restore();});}
+  g.restore();}));}
+function floorTex(wcm,hcm,tw,th){return dataTex(canvasTex(wcm,hcm,3,(g,w,h)=>{g.fillStyle='rgb(128,0,128)';g.fillRect(0,0,w,h);
+  for(let y=0;y<h;y+=th)for(let x=0;x<w;x+=tw){g.fillStyle=`rgb(${Math.round(128+(rnd()-0.5)*14)},255,128)`;g.fillRect(x+0.15,y+0.15,tw-0.3,th-0.3);}}));}
+const DEF={tile:'#7da5a0',grout:'#d9ddd8',floor:'#a07f42',wall:'#f4f3ef'};
+const U={tile:{value:new THREE.Color(DEF.tile)},tileGrout:{value:new THREE.Color(DEF.grout)},floor:{value:new THREE.Color(DEF.floor)},floorGrout:{value:new THREE.Color(DEF.floor).multiplyScalar(0.62)}};
+function recolourable(mat,cU,gU,cat){mat.userData.cat=cat;
+  mat.onBeforeCompile=sh=>{sh.uniforms.tileColor=cU;sh.uniforms.groutColor=gU;
+    sh.fragmentShader='uniform vec3 tileColor;\nuniform vec3 groutColor;\n'+sh.fragmentShader.replace('#include <map_fragment>',
+      'vec4 tx=texture2D(map,vMapUv);vec3 tc=tileColor*(0.45+1.1*tx.r);float lu=dot(tc,vec3(0.2126,0.7152,0.0722));tc=mix(vec3(lu),tc,0.82+0.36*tx.b);diffuseColor.rgb*=mix(groutColor,tc,tx.g);');};
+  mat.customProgramCacheKey=()=>'recolourable-tile';return mat;}
 function shade(hex,v){const c=new THREE.Color(hex);c.offsetHSL(0,0,v);return '#'+c.getHexString();}
 function tiles(wcm,hcm,tw,th,base,grout,vari){return canvasTex(wcm,hcm,3,(g,w,h)=>{g.fillStyle=grout;g.fillRect(0,0,w,h);
   for(let y=0;y<h;y+=th)for(let x=0;x<w;x+=tw){g.fillStyle=shade(base,(rnd()-0.5)*vari);g.fillRect(x+0.15,y+0.15,tw-0.3,th-0.3);}});}
@@ -163,8 +185,9 @@ function oak(wcm,hcm){return canvasTex(wcm,hcm,6,(g,w,h)=>{g.fillStyle='#b48f68'
   for(let i=0;i<220;i++){const y=rnd()*h;g.strokeStyle=`rgba(${90+rnd()*40},${60+rnd()*30},${35+rnd()*20},${0.15+rnd()*0.25})`;g.lineWidth=0.15+rnd()*0.4;g.beginPath();g.moveTo(0,y);
     for(let x=0;x<=w;x+=5)g.lineTo(x,y+Math.sin(x/17+i)*0.8);g.stroke();}});}
 const M=(o)=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.85,metalness:0},o));
-const tileM=(w,h,o)=>M({map:herring(w,h,o),roughness:0.25});
-const paint=M({color:'#f4f3ef'}),white=M({color:'#f7f7f5',roughness:0.25}),black=M({color:'#1d1d1f',roughness:0.45,metalness:0.4});
+const tileM=(w,h,o)=>recolourable(M({map:herring(w,h,o),roughness:0.25}),U.tile,U.tileGrout,'tile');
+const paint=M({color:DEF.wall});paint.userData.cat='wall';
+const white=M({color:'#f7f7f5',roughness:0.25}),black=M({color:'#1d1d1f',roughness:0.45,metalness:0.4});
 const ceramic=M({color:'#fbfbfa',roughness:0.12});
 const steel=M({color:'#d9d7d3',metalness:1,roughness:0.33});          // brushed stainless; gets a room reflection map below
 const solid=M({color:'#f6f5f1',roughness:0.55});                      // matt solid-surface basin
@@ -173,8 +196,8 @@ function plane(w,h,mat,pos,rotY){const m=new THREE.Mesh(new THREE.PlaneGeometry(
 function box(x0,x1,y0,y1,z0,z1,mat,cast=true){const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0),mat);m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);m.castShadow=cast;m.receiveShadow=true;scene.add(m);return m;}
 
 // floor + ceiling
-const fl=plane(RW,RD,M({map:tiles(RW,RD,60,60,'#a07f42','#866a3a',0.04),roughness:0.6}),[RW/2,0,RD/2]);fl.rotation.x=-Math.PI/2;
-const ceil=plane(RW,RD,M({color:'#f4f3f0'}),[RW/2,RH,RD/2]);ceil.rotation.x=Math.PI/2;
+const fl=plane(RW,RD,recolourable(M({map:floorTex(RW,RD,60,60),roughness:0.6}),U.floor,U.floorGrout,'floor'),[RW/2,0,RD/2]);fl.rotation.x=-Math.PI/2;
+const ceil=plane(RW,RD,M({color:'#f1ece1'}),[RW/2,RH,RD/2]);   // RAL 9010 pure white (approx. sRGB #F1ECE1)ceil.rotation.x=Math.PI/2;
 // north wall (door wall)
 plane(6,RH,paint,[3,RH/2,0]);plane(75,RH-201.5,paint,[43.5,(RH+201.5)/2,0]);plane(GX-81,RH,paint,[(81+GX)/2,RH/2,0]);
 plane(189-GX,RH,tileM(189-GX,RH),[(GX+189)/2,RH/2,0.05]);
@@ -420,34 +443,19 @@ new ResizeObserver(resize).observe(stage);
 // ---------- WebXR: walk through the room at 1:1 scale (Meta Quest browser etc.) ----------
 const xr=renderer.xr,S=0.01,Y=new THREE.Vector3(0,1,0);
 const btnVR=document.getElementById('btnVR'),vrNote=document.getElementById('vrNote');
+// ---------- live recolouring ----------
+function setColour(cat,hex){const h=hex||DEF[cat];
+  if(cat==='tile')U.tile.value.set(h);
+  else if(cat==='floor'){U.floor.value.set(h);U.floorGrout.value.set(h).multiplyScalar(0.62);}
+  else if(cat==='wall')paint.color.set(h);
+  const inp=document.getElementById('col-'+cat);if(inp)inp.value='#'+new THREE.Color(h).getHexString();render();}
+['tile','floor','wall'].forEach(c=>{const inp=document.getElementById('col-'+c);if(inp)inp.addEventListener('input',e=>setColour(c,e.target.value));});
+{const rb=document.getElementById('col-reset');if(rb)rb.addEventListener('click',()=>['tile','floor','wall'].forEach(c=>setColour(c,null)));}
+
 const ROOM={x0:0.10,x1:RW*S-0.10,z0:0.10,z1:RD*S-0.10};
-const spots=[
-  {name:'Door',x:0.44,z:0.30,face:[0.35,1]},
-  {name:'Shower',x:1.55,z:0.48,face:[1,0]},
-  {name:'Basin',x:0.82,z:1.68,face:[-1,0]},
-  {name:'WC',x:1.00,z:1.93,face:[1,0]},
-  {name:'Window',x:1.00,z:1.45,face:[0,1]}];
-let noFloor=false,inVR=false,spotIdx=0,pendingSpot=-1,lastT=0,turnLatch=false,aimCtrl=null,aimHit=null;
-const ctrls=[];
-const marker=new THREE.Mesh(new THREE.RingGeometry(0.12,0.16,40),new THREE.MeshBasicMaterial({color:'#2f9e7f',side:THREE.DoubleSide}));
-marker.rotation.x=-Math.PI/2;marker.visible=false;scene.add(marker);
-function helpTex(){return canvasTex(32,20,16,(g,w,h)=>{g.fillStyle='rgba(20,26,24,0.88)';g.fillRect(0,0,w,h);g.fillStyle='#ffffff';
-  g.font='600 2.2px sans-serif';g.fillText('Bathroom 1.02, real size',1.5,3.2);g.font='1.6px sans-serif';
-  ['Left stick: walk','Right stick left/right: turn 30°','Trigger: aim at floor, release to jump','A: next spot (door, shower, basin, WC, window)','B: glass print / satin / off   X: ceiling','Y or headset menu: leave VR']
-  .forEach((s,i)=>g.fillText(s,1.5,6.4+i*2.25));});}
-for(let i=0;i<2;i++){
-  const c=xr.getController(i);dolly.add(c);
-  const ray=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]),new THREE.LineBasicMaterial({color:'#ffffff'}));
-  ray.scale.z=0.25;c.add(ray);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.10),M({color:'#30363a'}));body.position.z=0.03;c.add(body);
-  c.userData={ray,src:null,prev:[]};
-  c.addEventListener('connected',e=>{c.userData.src=e.data;
-    if(e.data.handedness==='left'&&!c.userData.help){const p=new THREE.Mesh(new THREE.PlaneGeometry(0.16,0.10),new THREE.MeshBasicMaterial({map:helpTex(),transparent:true}));
-      p.position.set(0,0.07,-0.04);p.rotation.x=-0.7;c.add(p);c.userData.help=p;}});
-  c.addEventListener('disconnected',()=>{c.userData.src=null;});
-  c.addEventListener('selectstart',()=>{aimCtrl=c;});
-  c.addEventListener('selectend',()=>{if(aimCtrl===c&&aimHit)jumpTo(aimHit.x,aimHit.z);aimCtrl=null;aimHit=null;marker.visible=false;});
-  ctrls.push(c);}
+const startSpot={x:0.44,z:0.30,face:[0.35,1]};   // you start standing just inside the door, looking towards the window
+let noFloor=false,inVR=false,pendingSpot=false,current='#7da5a0',paintables=[];
+const ctrls=[],ray=new THREE.Raycaster();
 const _h=new THREE.Vector3(),_f=new THREE.Vector3();
 function head(){return _h.setFromMatrixPosition(xr.getCamera().matrixWorld);}
 function fwd(){const e=xr.getCamera().matrixWorld.elements;_f.set(-e[8],0,-e[10]);if(_f.lengthSq()<1e-6)_f.set(0,0,-1);return _f.normalize();}
@@ -455,33 +463,59 @@ function rotateAbout(p,a){const v=dolly.position.clone().sub(p).applyAxisAngle(Y
 function clampX(x){return Math.max(ROOM.x0,Math.min(ROOM.x1,x));}function clampZ(z){return Math.max(ROOM.z0,Math.min(ROOM.z1,z));}
 function jumpTo(x,z){const h=head().clone();dolly.position.x+=clampX(x)-h.x;dolly.position.z+=clampZ(z)-h.z;dolly.updateMatrixWorld(true);}
 function placeAt(sp){const h=head().clone(),f=fwd();rotateAbout(h,Math.atan2(sp.face[0],sp.face[1])-Math.atan2(f.x,f.z));jumpTo(sp.x,sp.z);}
-function pressed(c,i){const gp=c.userData.src&&c.userData.src.gamepad;const now=!!(gp&&gp.buttons[i]&&gp.buttons[i].pressed);const was=!!c.userData.prev[i];c.userData.prev[i]=now;return now&&!was;}
+
+// colour disc (held in the left hand): outer ring vivid hues, middle ring earthy bathroom colours, inner ring whites/greys, centre = original colours
+const unlit=c=>new THREE.MeshBasicMaterial({color:c,toneMapped:false});
+function buildDisc(){const g=new THREE.Group(),sw=[];
+  const bg=new THREE.Mesh(new THREE.CircleGeometry(0.09,64),new THREE.MeshBasicMaterial({color:'#262a29',transparent:true,opacity:0.94,toneMapped:false}));g.add(bg);
+  const rim=new THREE.Mesh(new THREE.RingGeometry(0.087,0.091,64),unlit('#d9d9d6'));rim.position.z=0.001;g.add(rim);
+  const add=(col,r,a,size,isReset)=>{let m;
+    if(isReset){const t=canvasTex(10,10,12,(c,w,h)=>{[DEF.tile,DEF.floor,DEF.wall].forEach((k,i)=>{c.fillStyle=k;c.beginPath();c.moveTo(5,5);c.arc(5,5,5,-Math.PI/2+i*2*Math.PI/3,-Math.PI/2+(i+1)*2*Math.PI/3);c.closePath();c.fill();});});
+      m=new THREE.Mesh(new THREE.CircleGeometry(size,32),new THREE.MeshBasicMaterial({map:t,toneMapped:false}));}
+    else m=new THREE.Mesh(new THREE.CircleGeometry(size,32),unlit(col));
+    m.position.set(r*Math.cos(a),r*Math.sin(a),0.003);m.userData={col:isReset?null:col,size};g.add(m);sw.push(m);};
+  for(let i=0;i<12;i++)add(new THREE.Color().setStyle(`hsl(${i*30},42%,46%)`).getStyle(),0.069,Math.PI/2-i*Math.PI/6,0.0125);
+  ['#2f5d50','#9caf88','#2e5e6e','#2b3a55','#b5603f','#c9a13b','#d8c7a3','#d9a5a0'].forEach((c,i)=>add(c,0.044,Math.PI/2-i*Math.PI/4+Math.PI/8,0.011));
+  ['#f7f6f2','#f1ece1','#c9c9c4','#8d8f8c','#3a3d40','#1c1c1c'].forEach((c,i)=>add(c,0.022,Math.PI/2-i*Math.PI/3,0.0078));
+  add(null,0,0,0.0085,true);
+  const sel=new THREE.Mesh(new THREE.RingGeometry(1.15,1.45,32),unlit('#ffffff'));sel.position.z=0.004;g.add(sel);
+  const lab=new THREE.Mesh(new THREE.PlaneGeometry(0.16,0.022),new THREE.MeshBasicMaterial({transparent:true,toneMapped:false,map:canvasTex(32,4.4,16,(c,w,h)=>{c.fillStyle='rgba(38,42,41,0.9)';c.fillRect(0,0,w,h);c.fillStyle='#fff';c.font='1.9px sans-serif';c.textAlign='center';c.fillText('pick a colour, then point at floor, tiles or wall',w/2,2.9);})}));
+  lab.position.set(0,-0.106,0.002);g.add(lab);
+  return {g,sw,sel};}
+const disc=buildDisc();
+function selectSwatch(m){disc.sel.position.set(m.position.x,m.position.y,0.004);disc.sel.scale.setScalar(m.userData.size);current=m.userData.col;
+  for(const c of ctrls)if(c.userData.tip)c.userData.tip.material.color.set(current||'#ffffff');}
+selectSwatch(disc.sw[disc.sw.length-1]);   // start on "original colours"
+function buzz(c,v,ms){try{const h=c.userData.src&&c.userData.src.gamepad&&c.userData.src.gamepad.hapticActuators;if(h&&h[0])h[0].pulse(v,ms);}catch(e){}}
+for(let i=0;i<2;i++){
+  const c=xr.getController(i);dolly.add(c);
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]),new THREE.LineBasicMaterial({color:'#ffffff',transparent:true,opacity:0.7}));
+  line.scale.z=0.3;line.visible=false;c.add(line);
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(0.006,12,8),unlit('#ffffff'));dot.visible=false;c.add(dot);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.10),M({color:'#30363a'}));body.position.z=0.03;c.add(body);
+  c.userData={line,dot,src:null,hoverSw:null,hoverCat:null};
+  c.addEventListener('connected',e=>{c.userData.src=e.data;
+    if(e.data.handedness==='left'){c.add(disc.g);disc.g.position.set(0,0.075,-0.05);disc.g.rotation.set(-1.0,0,0);}
+    else{line.visible=true;if(!c.userData.tip){const tip=new THREE.Mesh(new THREE.SphereGeometry(0.011,16,12),unlit(current||'#ffffff'));tip.position.z=-0.025;c.add(tip);c.userData.tip=tip;}}});
+  c.addEventListener('disconnected',()=>{c.userData.src=null;});
+  c.addEventListener('selectstart',()=>{const u=c.userData;
+    if(u.hoverSw){selectSwatch(u.hoverSw);buzz(c,0.3,30);}
+    else if(u.hoverCat){setColour(u.hoverCat,current);buzz(c,0.6,50);renderer.shadowMap.needsUpdate=true;}});
+  ctrls.push(c);}
+function collectPaintables(){paintables=[];world.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&o!==skyDome&&o!==grass&&o!==gp&&o!==mirror)paintables.push(o);});}
+const _o=new THREE.Vector3(),_d=new THREE.Vector3();
+function catOf(hit){const m=hit.object.material;const mat=Array.isArray(m)?m[hit.face.materialIndex]:m;return mat&&mat.userData?mat.userData.cat||null:null;}
 function xrFrame(){
   if(!xr.isPresenting)return;
-  const t=performance.now(),dt=lastT?Math.max(0,Math.min(0.1,(t-lastT)/1000)):0;lastT=t;
-  if(pendingSpot>=0&&xr.getCamera().matrixWorld.elements[13]!==0){placeAt(spots[pendingSpot]);pendingSpot=-1;}
+  if(pendingSpot&&xr.getCamera().matrixWorld.elements[13]!==0){placeAt(startSpot);pendingSpot=false;}
   dolly.updateMatrixWorld(true);
-  for(const c of ctrls){const src=c.userData.src;if(!src||!src.gamepad)continue;const ax=src.gamepad.axes;const sx=ax[2]||0,sy=ax[3]||0;
-    if(src.handedness==='left'){
-      if(Math.hypot(sx,sy)>0.15){const f=fwd().clone(),r=new THREE.Vector3(-f.z,0,f.x),h=head().clone();
-        const mv=r.multiplyScalar(sx).add(f.multiplyScalar(-sy)).multiplyScalar(1.1*dt);
-        dolly.position.x+=clampX(h.x+mv.x)-h.x;dolly.position.z+=clampZ(h.z+mv.z)-h.z;}
-      if(pressed(c,4)){ceil.visible=!ceil.visible;lamp.visible=ceil.visible;document.getElementById('tglCeil').checked=ceil.visible;}
-      if(pressed(c,5)){const s=xr.getSession();if(s)s.end();}
-    }else{
-      if(Math.abs(sx)>0.7&&!turnLatch){turnLatch=true;rotateAbout(head().clone(),sx>0?-Math.PI/6:Math.PI/6);}
-      else if(Math.abs(sx)<0.3)turnLatch=false;
-      if(pressed(c,4)){spotIdx=(spotIdx+1)%spots.length;placeAt(spots[spotIdx]);}
-      if(pressed(c,5)){ // cycle: flower print -> satin -> no glass
-        if(!glass.visible){glass.visible=true;gp.material=printMat;}else if(gp.material===printMat)gp.material=satinMat;else glass.visible=false;
-        document.getElementById('tglGlass').checked=glass.visible;document.getElementById('tglPrint').checked=gp.material===printMat;renderer.shadowMap.needsUpdate=true;}
-    }}
-  dolly.updateMatrixWorld(true);
-  for(const c of ctrls){c.userData.ray.scale.z=0.25;}
-  aimHit=null;marker.visible=false;
-  if(aimCtrl){const o=new THREE.Vector3().setFromMatrixPosition(aimCtrl.matrixWorld);const d=new THREE.Vector3(0,0,-1).transformDirection(aimCtrl.matrixWorld);
-    if(d.y<-0.02){const k=-o.y/d.y;if(k<6){const p=o.clone().addScaledVector(d,k);aimCtrl.userData.ray.scale.z=k;
-      if(p.x>-0.05&&p.x<RW*S+0.05&&p.z>-0.05&&p.z<RD*S+0.05){aimHit={x:clampX(p.x),z:clampZ(p.z)};marker.position.set(aimHit.x,0.005,aimHit.z);marker.visible=true;}}}}
+  for(const c of ctrls){const u=c.userData;if(!u.src||u.src.handedness==='left'){u.line.visible=false;u.dot.visible=false;continue;}
+    _o.setFromMatrixPosition(c.matrixWorld);_d.set(0,0,-1).transformDirection(c.matrixWorld);ray.set(_o,_d);ray.far=8;
+    if(u.hoverSw){u.hoverSw.scale.setScalar(1);u.hoverSw=null;}u.hoverCat=null;
+    let len=0.3,hs=ray.intersectObjects(disc.sw,false);
+    if(hs.length&&disc.g.parent){u.hoverSw=hs[0].object;u.hoverSw.scale.setScalar(1.3);len=hs[0].distance;}
+    else{const hw=ray.intersectObjects(paintables,false);if(hw.length){len=hw[0].distance;u.hoverCat=catOf(hw[0]);}}
+    u.line.visible=true;u.line.scale.z=len;u.dot.visible=!!(u.hoverSw||u.hoverCat);u.dot.position.set(0,0,-len);}
   xr.updateCamera(camera);mirror.userData.prepareXR(renderer,scene);   // reflections first, then the stereo frame
   renderer.render(scene,camera);}
 function setVRScale(on){
@@ -491,10 +525,10 @@ function setVRScale(on){
   const k=on?S:1;Object.assign(dl.shadow.camera,{left:-200*k,right:200*k,top:200*k,bottom:-200*k,near:10*k,far:900*k});dl.shadow.camera.updateProjectionMatrix();
   spots3.forEach(sp=>{sp.shadow.camera.near=2*k;sp.shadow.camera.far=300*k;sp.shadow.camera.updateProjectionMatrix();});
   renderer.shadowMap.needsUpdate=true;}
-xr.addEventListener('sessionstart',()=>{inVR=true;setVRScale(true);dolly.position.set(0,noFloor?1.6:0,0);dolly.rotation.set(0,0,0);spotIdx=0;pendingSpot=0;lastT=0;
+xr.addEventListener('sessionstart',()=>{inVR=true;setVRScale(true);dolly.position.set(0,noFloor?1.6:0,0);dolly.rotation.set(0,0,0);pendingSpot=true;collectPaintables();
   renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;btnVR.textContent='Exit VR';});
 xr.addEventListener('sessionend',()=>{inVR=false;renderer.setAnimationLoop(null);setVRScale(false);renderer.shadowMap.autoUpdate=true;
-  dolly.position.set(0,0,0);dolly.rotation.set(0,0,0);dolly.updateMatrixWorld(true);marker.visible=false;btnVR.textContent='Enter VR';
+  dolly.position.set(0,0,0);dolly.rotation.set(0,0,0);dolly.updateMatrixWorld(true);btnVR.textContent='Enter VR';
   goView('door');resize();});
 async function enterVR(){
   if(xr.isPresenting){const s=xr.getSession();if(s)s.end();return;}
@@ -510,12 +544,12 @@ function vrState(ok,msg){btnVR.disabled=!ok;vrNote.textContent=msg;}
 (async()=>{
   if(!('xr' in navigator)){vrState(false,window.isSecureContext?'VR: this browser has no WebXR. Open the page in the Meta Quest browser.':'VR: WebXR only works on an https page.');return;}
   try{const ok=await navigator.xr.isSessionSupported('immersive-vr');
-    vrState(ok,ok?'VR headset found. Press Enter VR and put the headset on; the help card sits on your left controller.':'VR: no headset found in this browser. Open the page in the Meta Quest browser.');}
+    vrState(ok,ok?'VR headset found. Press Enter VR and put the headset on; the colour disc sits on your left hand.':'VR: no headset found in this browser. Open the page in the Meta Quest browser.');}
   catch(e){vrState(false,'VR is blocked here because this page runs inside a frame without VR permission ('+e.name+'). Open the standalone copy in the Quest browser.');}
 })();
 
 const v0=views.dollhouse;setCam(v0.pos,v0.tgt,v0.fov,false);resize();
-window.__bath={goView,views,render,spots,placeAt,jumpTo,dolly,world,setVRScale};
+window.__bath={goView,views,render,placeAt,jumpTo,dolly,world,setVRScale,setColour,disc,ctrls,selectSwatch,U,paint};
 })();
 </script>
 
