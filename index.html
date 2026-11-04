@@ -101,6 +101,7 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
         <dt>Shelf above WC</dt><dd>top at 170, 56 × 20</dd>
         <dt>Counter</dt><dd>top 78, second plank at 30</dd>
         <dt>Basin</dt><dd>oval 60 × 38, centre 168 from door wall</dd>
+        <dt>Mirror cabinet</dt><dd>pine, 62 × 70 × 20, 33 above basin</dd>
         <dt>Radiator</dt><dd>towel rail 60 wide, 60–200 high</dd>
         <dt>Lights</dt><dd>4 ceiling spots, 2700 K</dd>
       </dl>
@@ -267,7 +268,9 @@ function pebbleBasin(L,W,H){const A=L/2,B=W/2,NT=96,prof=th=>{const c=Math.cos(t
 {const bm=new THREE.Mesh(pebbleBasin(60,40,15),solid);bm.material.side=THREE.DoubleSide;bm.rotation.y=-Math.PI/2;bm.position.set(BX,78,BZ);bm.castShadow=true;bm.receiveShadow=false;scene.add(bm);
  const dr=new THREE.Mesh(new THREE.CylinderGeometry(2,2,0.3,24),steel);dr.position.set(BX,80.6,BZ);scene.add(dr);}
 // trap
-const trap=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,44,16),M({color:'#c9ccd0',roughness:0.2,metalness:0.8}));trap.position.set(BX,56,BZ);scene.add(trap);
+// bottle trap under the basin, waste pipe straight into the inner wall (keeps the lower shelf free for the baskets)
+{const cy=(r,h,x,y,z,rx,rz)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,20),steel);m.position.set(x,y,z);if(rx)m.rotation.x=rx;if(rz)m.rotation.z=rz;m.castShadow=true;scene.add(m);};
+ cy(1.6,12,BX,68,BZ);cy(3,9,BX,61.5,BZ);cy(1.6,BX,BX/2,62,BZ,0,Math.PI/2);cy(3.4,0.8,0.4,62,BZ,0,Math.PI/2);}
 // wall tap, mirror, light
 // tall single-lever basin mixer in brushed steel, on the counter behind the basin
 {const TX=2.7,cyl=(r,h,x,y,z)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,32),steel);m.position.set(x,y+h/2,z);m.castShadow=true;scene.add(m);return m;};
@@ -303,8 +306,22 @@ function makeMirror(w,h,res){
     prepare(renderer,scn,camera,0);use(0);if(camera.viewport!==undefined)renderer.state.viewport(camera.viewport);};
   me.userData.prepareXR=function(renderer,scn){const cams=renderer.xr.getCamera().cameras;for(let k=0;k<cams.length&&k<2;k++)prepare(renderer,scn,cams[k],k);};
   return me;}
-const mirror=makeMirror(50,80,768);mirror.position.set(0.4,155,BZ);mirror.rotation.y=Math.PI/2;scene.add(mirror);
-box(0,1,115,195,BZ-25.5,BZ-24.5,black,false);box(0,1,115,195,BZ+24.5,BZ+25.5,black,false);box(0,1,114.5,115.5,BZ-25.5,BZ+25.5,black,false);box(0,1,194.5,195.5,BZ-25.5,BZ+25.5,black,false);
+// existing pine mirror cabinet: 62 wide, 70 high, 20 deep, bottom 33 above the basin rim; mirror door with a 3 cm wooden border
+function woodTex(base,wcm,hcm){return canvasTex(wcm,hcm,6,(g,w,h)=>{g.fillStyle=base;g.fillRect(0,0,w,h);
+  for(let i=0;i<160;i++){const y=rnd()*h;g.strokeStyle=`rgba(${120+rnd()*40},${80+rnd()*30},${40+rnd()*20},${0.12+rnd()*0.22})`;g.lineWidth=0.1+rnd()*0.35;g.beginPath();g.moveTo(0,y);
+    for(let x=0;x<=w;x+=4)g.lineTo(x,y+Math.sin(x/13+i)*0.6);g.stroke();}});}
+const pineT=woodTex('#e8c896',40,80);pineT.wrapS=pineT.wrapT=THREE.RepeatWrapping;pineT.repeat.set(1/40,1/80);const pineM=M({map:pineT,roughness:0.6});
+const CAB={y0:78+15+33,h:70,w:62,d:20};CAB.y1=CAB.y0+CAB.h;CAB.z0=BZ-CAB.w/2;CAB.z1=BZ+CAB.w/2;
+{const {y0,y1,z0,z1}=CAB,F=3;
+ box(0,1,y0,y1,z0,z1,pineM);box(0,18,y0,y1,z0,z0+1.8,pineM);box(0,18,y0,y1,z1-1.8,z1,pineM);box(0,18,y1-1.8,y1,z0,z1,pineM);box(0,18,y0,y0+1.8,z0,z1,pineM);
+ box(18,20.5,y0,y1,z0,z0+F,pineM);box(18,20.5,y0,y1,z1-F,z1,pineM);box(18,20.5,y0,y0+F,z0+F,z1-F,pineM);box(18,20.5,y1-F,y1,z0+F,z1-F,pineM);}
+const mirror=makeMirror(CAB.w-6,CAB.h-6,768);mirror.position.set(19.4,(CAB.y0+CAB.y1)/2,BZ);mirror.rotation.y=Math.PI/2;scene.add(mirror);
+// double socket (two Schuko inserts stacked), on the inner wall just left of the basin, near the window corner, centre 25 above the counter
+{const t=canvasTex(8,15.5,30,(g,w,h)=>{g.fillStyle='#f7f7f4';g.fillRect(0,0,w,h);g.strokeStyle='rgba(0,0,0,0.10)';g.lineWidth=0.12;g.strokeRect(0.1,0.1,w-0.2,h-0.2);
+   for(const cy of [h*0.27,h*0.73]){const gd=g.createRadialGradient(4,cy,0.4,4,cy,2.6);gd.addColorStop(0,'#e4e4e0');gd.addColorStop(1,'#cfcfca');g.fillStyle=gd;g.beginPath();g.arc(4,cy,2.6,0,Math.PI*2);g.fill();
+     g.fillStyle='#3a3a3a';g.beginPath();g.arc(4-0.95,cy,0.28,0,Math.PI*2);g.arc(4+0.95,cy,0.28,0,Math.PI*2);g.fill();g.fillStyle='#b9b9b4';g.fillRect(3.6,cy-2.6,0.8,0.45);g.fillRect(3.6,cy+2.15,0.8,0.45);}});
+ const sock=new THREE.Mesh(new THREE.BoxGeometry(1,15.5,8),[M({map:t,roughness:0.35}),paint,M({color:'#f7f7f4'}),M({color:'#f7f7f4'}),M({color:'#f7f7f4'}),M({color:'#f7f7f4'})]);
+ sock.position.set(0.5,103,RD-12);scene.add(sock);}
 box(0,6,199,203,BZ-22,BZ+22,M({color:'#fff8e8',emissive:'#fff1d0',emissiveIntensity:0.9}),false);
 // WC box tiled in herringbone (faces: +x,-x,+y,-y,+z,-z)
 // box runs from 28 north of the WC centre up to the window wall (flush with it)
@@ -320,6 +337,34 @@ box(193,201,78,78.6,WCZ-12,WCZ+12,black,false);
  box(205.4,RW,52,96,GZ-4.5,GZ+4.5,steel);box(198,205.4,61,83,GZ-2.6,GZ+2.6,steel);}
 // shelf above WC, top at 170, as wide as the WC (kept off the window)
 box(187,RW,167,170,WCZ-28,WCZ+28,oakM);
+// three toilet rolls on the shelf (two standing, one on top)
+{const rollM=M({color:'#fbfaf7',roughness:0.95}),coreM=M({color:'#a88a66',roughness:0.9});
+ const roll=(x,y,z,lying)=>{const g=new THREE.Group();const r=new THREE.Mesh(new THREE.CylinderGeometry(5.6,5.6,10,32),rollM);const c=new THREE.Mesh(new THREE.CylinderGeometry(2.1,2.1,10.1,20),coreM);g.add(r,c);
+   g.position.set(x,y,z);if(lying)g.rotation.z=Math.PI/2;g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});scene.add(g);};
+ roll(197,175,WCZ-7);roll(197,175,WCZ+5.5);roll(197.5,185.1,WCZ-0.8);
+ // brushed-steel roll holder on the window wall, beside the WC, 64 high; one roll on it
+ box(173,177,60,68,RD-1.3,RD-0.05,steel);
+ const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,6.5,16).rotateX(Math.PI/2),steel);arm.position.set(175,64,RD-4.2);scene.add(arm);
+ const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,13,16).rotateZ(Math.PI/2),steel);bar.position.set(168.5,64,RD-7.5);scene.add(bar);
+ roll(167,64,RD-7.5,true);}
+// three woven water-hyacinth baskets on the lower counter shelf (cut-out handle, braided rays on the front)
+function weaveTex(wcm,hcm,front){return canvasTex(wcm,hcm,10,(g,w,h)=>{
+  const leaf=(x,y,a,len,wd)=>{g.save();g.translate(x,y);g.rotate(a);const l=60+rnd()*12;g.fillStyle=`hsl(${31+rnd()*5},${34+rnd()*10}%,${l}%)`;g.beginPath();g.ellipse(0,0,len/2,wd/2,0,0,Math.PI*2);g.fill();
+    g.strokeStyle='rgba(120,88,55,0.40)';g.lineWidth=0.1;g.stroke();g.restore();};
+  const braid=(x0,y0,x1,y1,wd)=>{const L=Math.hypot(x1-x0,y1-y0),a=Math.atan2(y1-y0,x1-x0),n=Math.ceil(L/(wd*0.36));
+    for(let i=0;i<=n;i++){const t=i/n,x=x0+(x1-x0)*t,y=y0+(y1-y0)*t,s=i%2?1:-1;leaf(x+Math.cos(a+s*Math.PI/2)*wd*0.2,y+Math.sin(a+s*Math.PI/2)*wd*0.2,a+s*0.65,wd*1.05,wd*0.5);}};
+  const rope=(x0,y0,x1,y1)=>{g.strokeStyle='hsl(36,26%,66%)';g.lineWidth=0.45;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();};
+  for(let x=1.0;x<w;x+=1.3)rope(x,0,x,h);for(let y=1.0;y<h;y+=3.2)rope(0,y,w,y);                                  // thin vertical seagrass strands
+  if(front){const cx=w/2,cy=h*0.2;for(let k=0;k<9;k++){const a=Math.PI*(0.08+0.84*k/8);braid(cx+Math.cos(a)*4.5,cy+Math.sin(a)*3.5,cx+Math.cos(a)*w*0.9,cy+Math.sin(a)*h*1.1,3.2);}
+    braid(0,h*0.08,w,h*0.08,3);g.globalCompositeOperation='destination-out';g.beginPath();g.ellipse(cx,cy,4.2,3,0,0,Math.PI*2);g.fill();g.globalCompositeOperation='source-over';}
+  else for(let y=2;y<h;y+=5)braid(0,y,w,y,3);
+  g.strokeStyle='hsl(34,26%,62%)';g.lineWidth=1.2;g.strokeRect(0.6,0.6,w-1.2,h-1.2);});}
+{const BH=26,BD=30,BW=27,bm=(t)=>{t.anisotropy=8;return new THREE.MeshStandardMaterial({map:t,alphaTest:0.4,transparent:false,side:THREE.DoubleSide,roughness:0.9});};
+ const frontM=bm(weaveTex(BW,BH,true)),sideM=bm(weaveTex(BD,BH,false)),botM=bm(weaveTex(BD,BW,false));
+ for(const zc of [159.5,188.5,217.5]){const g=new THREE.Group();
+   const pl=(w,h,mat,x,y,z,ry,rx)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);m.rotation.set(rx||0,ry||0,0);m.castShadow=true;m.receiveShadow=true;g.add(m);};
+   pl(BW,BH,frontM,BD/2,BH/2,0,Math.PI/2);pl(BW,BH,frontM,-BD/2,BH/2,0,-Math.PI/2);pl(BD,BH,sideM,0,BH/2,BW/2,0);pl(BD,BH,sideM,0,BH/2,-BW/2,Math.PI);pl(BD,BW,botM,0,0.3,0,0,-Math.PI/2);
+   g.position.set(23,30,zc);g.rotation.y=(rnd()-0.5)*0.06;scene.add(g);}}
 // pot facing west
 function dshape(r,len){const s=new THREE.Shape();s.moveTo(0,-r);s.lineTo(-(len-r),-r);s.absarc(-(len-r),0,r,-Math.PI/2,-3*Math.PI/2,true);s.lineTo(0,r);s.lineTo(0,-r);return s;}
 function ext(s,y0,y1,mat){const g=new THREE.ExtrudeGeometry(s,{depth:y1-y0,bevelEnabled:true,bevelThickness:1,bevelSize:1,bevelSegments:3,curveSegments:32});g.rotateX(-Math.PI/2);g.translate(187,y0,WCZ);const m=new THREE.Mesh(g,mat);m.castShadow=true;scene.add(m);}
