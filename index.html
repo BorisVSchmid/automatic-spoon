@@ -256,7 +256,7 @@ skyDome.position.set(RW/2,0,RD/2);skyDome.renderOrder=-1;scene.add(skyDome);
 const grassT=canvasTex(256,256,2,(g,w,h)=>{g.fillStyle='#5f7a45';g.fillRect(0,0,w,h);for(let i=0;i<900;i++){const x=rnd()*w,y=rnd()*h,r=4+rnd()*18;const gd=g.createRadialGradient(x,y,0,x,y,r);const l=30+rnd()*14;gd.addColorStop(0,`hsla(${88+rnd()*20},32%,${l}%,0.35)`);gd.addColorStop(1,`hsla(90,30%,${l}%,0)`);g.fillStyle=gd;g.fillRect(x-r,y-r,2*r,2*r);}});
 const grass=plane(14000,14000,new THREE.MeshLambertMaterial({map:grassT}),[RW/2,GROUND,RD/2]);grass.rotation.x=-Math.PI/2;grass.receiveShadow=false;
 grass.material.map.wrapS=grass.material.map.wrapT=THREE.RepeatWrapping;grass.material.map.repeat.set(30,30);
-{const N=420,trunkG=new THREE.CylinderGeometry(0.5,0.7,1,5).translate(0,0.5,0),coneG=new THREE.ConeGeometry(1,1,8).translate(0,0.5,0),ballG=new THREE.IcosahedronGeometry(1,1);
+{const N=240,trunkG=new THREE.CylinderGeometry(0.5,0.7,1,5).translate(0,0.5,0),coneG=new THREE.ConeGeometry(1,1,8).translate(0,0.5,0),ballG=new THREE.IcosahedronGeometry(1,1);
  const trunks=new THREE.InstancedMesh(trunkG,new THREE.MeshLambertMaterial({color:'#5a4634'}),N);
  const cones=new THREE.InstancedMesh(coneG,new THREE.MeshLambertMaterial({color:'#ffffff'}),N*3);
  const balls=new THREE.InstancedMesh(ballG,new THREE.MeshLambertMaterial({color:'#ffffff'}),N*3);
@@ -264,7 +264,7 @@ grass.material.map.wrapS=grass.material.map.wrapT=THREE.RepeatWrapping;grass.mat
  const put=(mesh,i,x,y,z,sx,sy,sz,rot)=>{q.setFromAxisAngle(new THREE.Vector3(0,1,0),rot||0);m.compose(new THREE.Vector3(x,y,z),q,new THREE.Vector3(sx,sy,sz));mesh.setMatrixAt(i,m);};
  for(let i=0;i<N;i++){
    // lawn first, forest edge 15 m from the facade, ~30 m deep, wider further away
-   const z=RD+1500+Math.pow(rnd(),0.7)*3000, half=1200+(z-RD)*1.0, x=RW/2+(rnd()*2-1)*half;
+   const z=RD+1500+Math.pow(rnd(),0.7)*1200, half=1100+(z-RD)*0.85, x=RW/2+(rnd()*2-1)*half;
    const conifer=rnd()<0.55, H=(conifer?1100:800)+rnd()*900, tw=conifer?14+rnd()*8:20+rnd()*12;
    put(trunks,nt++,x,GROUND,z,tw,conifer?H*0.4:H*0.5,tw);
    if(conifer){const R=H*(0.13+rnd()*0.05);
@@ -274,8 +274,8 @@ grass.material.map.wrapS=grass.material.map.wrapT=THREE.RepeatWrapping;grass.mat
      for(let k=0;k<3;k++){put(balls,nb,x+(rnd()-0.5)*R*0.8,GROUND+H*0.62+(rnd()-0.2)*R*0.6,z+(rnd()-0.5)*R*0.8,R*(0.6+rnd()*0.35),R*(0.5+rnd()*0.3),R*(0.6+rnd()*0.35),rnd()*6);
        balls.setColorAt(nb++,c.setHSL(0.22+rnd()*0.08,0.35+rnd()*0.2,0.22+rnd()*0.10));}}}
  trunks.count=nt;cones.count=nc;balls.count=nb;[trunks,cones,balls].forEach(o=>{o.instanceMatrix.needsUpdate=true;if(o.instanceColor)o.instanceColor.needsUpdate=true;
-   o.boundingSphere=new THREE.Sphere(new THREE.Vector3(RW/2,GROUND+1200,RD+2800),5200);o.frustumCulled=true;scene.add(o);});}
-scene.fog=new THREE.Fog('#d3ddd9',1200,6500);
+   o.boundingSphere=new THREE.Sphere(new THREE.Vector3(RW/2,GROUND+1000,RD+2100),3400);o.frustumCulled=true;scene.add(o);});}
+scene.fog=new THREE.Fog('#d3ddd9',1000,3600);
 box(0,RW,WIN0,WIN0+6,RD,RD+8,white);box(0,RW,WIN1-6,WIN1,RD,RD+8,white);box(0,6,WIN0,WIN1,RD,RD+8,white);box(RW-6,RW,WIN0,WIN1,RD,RD+8,white);box(RW/2-3,RW/2+3,WIN0,WIN1,RD,RD+8,white);
 box(0,RW,WIN0-1.5,WIN0+0.5,RD-4,RD+1,M({color:'#d7d3cc'}));
 // inner (west) wall, no tile strip behind the basin
@@ -611,7 +611,7 @@ function xrFrame(){
 function setVRScale(on){
   world.scale.setScalar(on?S:1);
   camera.near=on?0.1:1;camera.far=on?150:15000;camera.updateProjectionMatrix();
-  scene.fog.near=1200*(on?S:1);scene.fog.far=6500*(on?S:1);
+  scene.fog.near=1000*(on?S:1);scene.fog.far=3600*(on?S:1);
   const k=on?S:1;Object.assign(dl.shadow.camera,{left:-200*k,right:200*k,top:200*k,bottom:-200*k,near:10*k,far:900*k});dl.shadow.camera.updateProjectionMatrix();
   spots3.forEach(sp=>{sp.castShadow=!on;sp.shadow.camera.near=2*k;sp.shadow.camera.far=300*k;sp.shadow.camera.updateProjectionMatrix();});   // in VR the four spots light without casting shadows
   renderer.shadowMap.needsUpdate=true;}
