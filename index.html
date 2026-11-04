@@ -113,12 +113,13 @@ ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
     <section class="card">
       <h2>Colours</h2>
       <dl class="cols">
-        <dt><label for="col-floor">Floor tiles</label></dt><dd><input type="color" id="col-floor" value="#a07f42"></dd>
-        <dt><label for="col-tile">Wall tiles</label></dt><dd><input type="color" id="col-tile" value="#7da5a0"></dd>
-        <dt><label for="col-wall">Plain walls</label></dt><dd><input type="color" id="col-wall" value="#f4f3ef"></dd>
+        <dt><label for="col-floor">Floor tiles</label></dt><dd><span class="cname" id="name-floor"></span><input type="color" id="col-floor" value="#a07f42"></dd>
+        <dt><label for="col-tile">Wall tiles</label></dt><dd><span class="cname" id="name-tile"></span><input type="color" id="col-tile" value="#7da5a0"></dd>
+        <dt><label for="col-wall">Plain walls</label></dt><dd><span class="cname" id="name-wall"></span><input type="color" id="col-wall" value="#f4f3ef"></dd>
         <dt>Ceiling</dt><dd>RAL 9010 (approx.)</dd>
       </dl>
       <p style="margin:10px 0 0"><button type="button" id="col-reset">Original colours</button></p>
+      <style>.cname{font:12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);margin-right:8px;vertical-align:middle}</style>
     </section>
     <section class="card">
       <h2>In VR (Meta Quest browser)</h2>
@@ -659,14 +660,39 @@ new ResizeObserver(resize).observe(stage);
 // ---------- WebXR: walk through the room at 1:1 scale (Meta Quest browser etc.) ----------
 const xr=renderer.xr,S=0.01,Y=new THREE.Vector3(0,1,0);
 const btnVR=document.getElementById('btnVR'),vrNote=document.getElementById('vrNote');
+// ---------- colour names: nearest neighbour in CIELAB against a small interior palette ----------
+const NAMES=[['#ffffff','white'],['#f6f3ec','chalk'],['#efe9dd','linen'],['#e4ded2','oat'],['#d8d2c6','bone'],['#cfc8ba','putty'],
+ ['#bdb5a6','greige'],['#a79e8e','taupe'],['#8d8679','mushroom'],['#6f6a60','stone'],['#55514a','slate'],['#3c3a36','charcoal'],
+ ['#22211f','soot'],['#0e0e0e','black'],['#c9c9c9','light grey'],['#9a9a9a','grey'],['#6b6b6b','dark grey'],
+ ['#b23a2e','brick'],['#a8432b','rust'],['#c05f3c','terracotta'],['#b4745a','clay'],['#d99a6c','apricot'],['#e8c39e','sand'],
+ ['#d9a441','ochre'],['#c89b2b','mustard'],['#8a6a2b','bronze'],['#7a4a28','chestnut'],['#5a3a26','chocolate'],['#3f2d22','cocoa'],
+ ['#e6b7a8','blush'],['#d98a8a','rose'],['#a33d4f','raspberry'],['#e3d27a','straw'],['#cfc24f','wheat'],['#9aa33f','olive'],
+ ['#7d8b3f','moss'],['#5e7a3a','fern'],['#3f6b3a','forest'],['#2f4f34','bottle green'],['#8fae7a','sage'],['#b8cfa4','pistachio'],
+ ['#6fae8a','jade'],['#8fd1b4','mint'],['#76b6a6','seafoam'],['#2f6b70','petrol'],['#2e8f8c','teal'],['#7fc0c4','duck egg'],
+ ['#4a7fa8','denim'],['#2f4f7a','navy'],['#39506b','indigo'],['#8fb4d1','sky'],['#cfdce6','ice'],
+ ['#6b4a7a','aubergine'],['#8a5f8f','plum'],['#b79fc4','lavender'],['#d9a8c4','orchid'],['#c45f8f','fuchsia']];
+function hex2lab(hex){const n=parseInt(hex.slice(1),16),f=v=>{v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);};
+  const r=f((n>>16)&255),g=f((n>>8)&255),b=f(n&255);
+  const X=(0.4124*r+0.3576*g+0.1805*b)/0.95047,Y=0.2126*r+0.7152*g+0.0722*b,Z=(0.0193*r+0.1192*g+0.9505*b)/1.08883;
+  const k=t=>t>0.008856?Math.cbrt(t):(7.787*t+16/116);
+  return [116*k(Y)-16,500*(k(X)-k(Y)),200*(k(Y)-k(Z))];}
+const NAMELAB=NAMES.map(([h,n])=>[hex2lab(h),n]);
+function colourName(hex){if(!hex)return 'original';const L=hex2lab(hex);let best=null,bd=1e9;
+  for(const [l,n] of NAMELAB){const d=(L[0]-l[0])*(L[0]-l[0])*0.55+(L[1]-l[1])*(L[1]-l[1])+(L[2]-l[2])*(L[2]-l[2]);if(d<bd){bd=d;best=[l,n];}}
+  const dL=L[0]-best[0][0];
+  return (dL<-13?'dark ':dL>13?'light ':'')+best[1];}
 // ---------- live recolouring ----------
 function setColour(cat,hex){const h=hex||DEF[cat];
   if(cat==='tile')U.tile.value.set(h);
   else if(cat==='floor'){U.floor.value.set(h);U.floorGrout.value.set(h).multiplyScalar(0.62);}
   else if(cat==='wall')paint.color.set(h);
-  const inp=document.getElementById('col-'+cat);if(inp)inp.value='#'+new THREE.Color(h).getHexString();render();}
+  const hx='#'+new THREE.Color(h).getHexString();
+  const inp=document.getElementById('col-'+cat);if(inp)inp.value=hx;
+  const nm=document.getElementById('name-'+cat);if(nm)nm.textContent=hx.toUpperCase()+' · '+colourName(hx);
+  render();}
 ['tile','floor','wall'].forEach(c=>{const inp=document.getElementById('col-'+c);if(inp)inp.addEventListener('input',e=>setColour(c,e.target.value));});
 {const rb=document.getElementById('col-reset');if(rb)rb.addEventListener('click',()=>['tile','floor','wall'].forEach(c=>setColour(c,null)));}
+['tile','floor','wall'].forEach(c=>setColour(c,null));   // fills in the hex + name readouts
 
 const ROOM={x0:0.10,x1:RW*S-0.10,z0:0.10,z1:RD*S-0.10};
 const startSpot={x:0.44,z:0.30,face:[0.35,1]};   // you start standing just inside the door, looking towards the window
@@ -712,6 +738,14 @@ function paintBar(){const c=disc.bc.getContext('2d'),id=c.createImageData(8,128)
   c.putImageData(id,0,0);disc.bt.needsUpdate=true;}
 function applyColour(){current=curReset?null:'#'+new THREE.Color().setHSL(curH,curS,curL).getHexString();
   for(const c of ctrls)if(c.userData.tip)c.userData.tip.material.color.set(current||'#ffffff');}
+// the colour the pointer is over: on the wheel/bar the one you would pick, on a surface the one it has now
+function colourAt(obj,lp){
+  if(!obj||obj===disc.reset)return null;
+  if(obj===disc.bar){const L=Math.max(0.04,Math.min(0.98,0.5+0.94*lp.y/BH));return '#'+new THREE.Color().setHSL(curH,curS,L).getHexString();}
+  const h=((Math.atan2(lp.y,lp.x)/(2*Math.PI))+1)%1,sa=Math.min(1,Math.hypot(lp.x,lp.y)/DR);
+  return '#'+new THREE.Color().setHSL(h,sa,curL).getHexString();}
+function colourOf(cat){const c=cat==='tile'?U.tile.value:cat==='floor'?U.floor.value:cat==='wall'?paint.color:null;
+  return c?'#'+c.getHexString():null;}
 function pickColour(obj,lp){
   if(!obj)return;
   if(obj===disc.reset){curReset=true;disc.sel.visible=false;}
@@ -727,8 +761,12 @@ for(let i=0;i<2;i++){
   const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]),new THREE.LineBasicMaterial({color:'#ffffff',transparent:true,opacity:0.7}));
   line.scale.z=0.3;line.visible=false;c.add(line);
   const dot=new THREE.Mesh(new THREE.SphereGeometry(0.006,12,8),unlit('#ffffff'));dot.visible=false;c.add(dot);
+  const labC=document.createElement('canvas');labC.width=340;labC.height=80;
+  const labT=new THREE.CanvasTexture(labC);labT.colorSpace=THREE.SRGBColorSpace;
+  const lab=new THREE.Mesh(new THREE.PlaneGeometry(0.128,0.030),new THREE.MeshBasicMaterial({map:labT,transparent:true,toneMapped:false,depthTest:false}));
+  lab.renderOrder=30;lab.visible=false;c.add(lab);
   const body=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.10),M({color:'#30363a'}));body.position.z=0.03;c.add(body);
-  c.userData={line,dot,src:null,hoverSw:null,hoverCat:null};
+  c.userData={line,dot,lab,labC,labT,labHex:'-',src:null,hoverSw:null,hoverCat:null};
   c.addEventListener('connected',e=>{c.userData.src=e.data;
     if(e.data.handedness==='left'){c.add(disc.g);disc.g.position.set(0,0.105,-0.07);disc.g.rotation.set(-1.0,0,0);}
     else{line.visible=true;if(!c.userData.tip){const tip=new THREE.Mesh(new THREE.SphereGeometry(0.011,16,12),unlit(current||'#ffffff'));tip.position.z=-0.025;c.add(tip);c.userData.tip=tip;}}});
@@ -737,6 +775,16 @@ for(let i=0;i<2;i++){
     if(u.hoverSw){pickColour(u.hoverSw,u.hoverLp);buzz(c,0.3,30);}
     else if(u.hoverCat){setColour(u.hoverCat,current);buzz(c,0.6,50);renderer.shadowMap.needsUpdate=true;}});
   ctrls.push(c);}
+function drawTag(u,hex){if(u.labHex===hex)return;u.labHex=hex;
+  const g=u.labC.getContext('2d'),W=u.labC.width,H=u.labC.height;
+  g.clearRect(0,0,W,H);g.fillStyle='rgba(28,31,30,0.92)';g.beginPath();
+  if(g.roundRect)g.roundRect(0,0,W,H,14);else g.rect(0,0,W,H);
+  g.fill();
+  g.fillStyle=hex;g.fillRect(12,16,48,48);g.strokeStyle='rgba(255,255,255,0.55)';g.lineWidth=2;g.strokeRect(13,17,46,46);
+  g.fillStyle='#ffffff';g.font='600 27px ui-monospace,Menlo,monospace';g.textAlign='left';g.textBaseline='alphabetic';
+  g.fillText(hex.toUpperCase(),74,40);
+  g.fillStyle='#cdd2ce';g.font='21px system-ui,sans-serif';g.fillText(colourName(hex),74,66);
+  u.labT.needsUpdate=true;}
 function collectPaintables(){paintables=[];world.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&o!==skyDome&&o!==grass&&o!==gp&&o!==mirror)paintables.push(o);});}
 const _o=new THREE.Vector3(),_d=new THREE.Vector3(),_mp=new THREE.Vector3();
 function catOf(hit){const m=hit.object.material;const mat=Array.isArray(m)?m[hit.face.materialIndex]:m;return mat&&mat.userData?mat.userData.cat||null:null;}
@@ -750,7 +798,11 @@ function xrFrame(){
     let len=0.3,hs=ray.intersectObjects(disc.pick,false);
     if(hs.length&&disc.g.parent){u.hoverSw=hs[0].object;u.hoverLp=hs[0].object.worldToLocal(hs[0].point.clone());len=hs[0].distance;}
     else{const hw=ray.intersectObjects(paintables,false);if(hw.length){len=hw[0].distance;u.hoverCat=catOf(hw[0]);}}
-    u.line.visible=true;u.line.scale.z=len;u.dot.visible=!!(u.hoverSw||u.hoverCat);u.dot.position.set(0,0,-len);}
+    u.line.visible=true;u.line.scale.z=len;u.dot.visible=!!(u.hoverSw||u.hoverCat);u.dot.position.set(0,0,-len);
+    const hex=u.hoverSw?colourAt(u.hoverSw,u.hoverLp):u.hoverCat?colourOf(u.hoverCat):null;
+    if(u.lab){if(hex){drawTag(u,hex);const sc=Math.max(0.7,Math.min(3,len/0.35));
+        u.lab.visible=true;u.lab.scale.setScalar(sc);u.lab.position.set(0,0.040*sc,-len+0.012);}
+      else u.lab.visible=false;}}
   xr.updateCamera(camera);
   {const d=head().distanceTo(mirror.getWorldPosition(_mp));if(d<1.3)mirror.userData.mono=false;else if(d>1.7)mirror.userData.mono=true;}
   mirror.userData.prepareXR(renderer,scene);   // reflections first, then the stereo frame
@@ -787,7 +839,7 @@ function vrState(ok,msg){btnVR.disabled=!ok;vrNote.textContent=msg;}
 })();
 
 const v0=views.dollhouse;setCam(v0.pos,v0.tgt,v0.fov,false);resize();
-window.__bath={goView,views,render,placeAt,jumpTo,dolly,world,setVRScale,setColour,disc,ctrls,pickColour,U,paint};
+window.__bath={goView,views,render,placeAt,jumpTo,dolly,world,setVRScale,setColour,disc,ctrls,pickColour,colourName,colourAt,U,paint};
 })();
 </script>
 
