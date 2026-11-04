@@ -252,14 +252,16 @@ const trap=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,44,16),M({color:'#c
  const sp=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(TX,104,BZ),new THREE.Vector3(9,104.3,BZ),new THREE.Vector3(14.5,102.8,BZ),new THREE.Vector3(17,98.5,BZ)]),32,1.1,16),steel);sp.castShadow=true;scene.add(sp);
  const lv=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.5,7.5,12),steel);lv.position.set(TX+0.6,111.4,BZ+5.2);lv.rotation.x=Math.PI/2-0.35;lv.rotation.z=0.12;scene.add(lv);}
 // mirror: a real planar reflection (port of three.js r160 examples Reflector, MIT licence)
+// The reflection is rendered into a texture BEFORE the main frame (one texture per eye in VR), never in the middle of
+// an eye's draw pass: switching render targets mid-pass inside a WebXR frame caused heavy flicker on the Quest.
 function makeMirror(w,h,res){
-  const rt=new THREE.WebGLRenderTarget(res,res*h/w,{samples:4,type:THREE.HalfFloatType});
-  const vcam=new THREE.PerspectiveCamera(),tm=new THREE.Matrix4(),pl=new THREE.Plane(),n=new THREE.Vector3(),rp=new THREE.Vector3(),cp=new THREE.Vector3(),rm=new THREE.Matrix4(),la=new THREE.Vector3(),clip=new THREE.Vector4(),view=new THREE.Vector3(),tg=new THREE.Vector3(),q=new THREE.Vector4();
-  const mat=new THREE.ShaderMaterial({uniforms:{tDiffuse:{value:rt.texture},tint:{value:new THREE.Color().setRGB(0.47,0.48,0.48)},textureMatrix:{value:tm}},
+  const slots=[0,1].map(()=>({rt:new THREE.WebGLRenderTarget(res,Math.round(res*h/w),{samples:4,type:THREE.HalfFloatType}),tm:new THREE.Matrix4()}));
+  const vcam=new THREE.PerspectiveCamera(),pl=new THREE.Plane(),n=new THREE.Vector3(),rp=new THREE.Vector3(),cp=new THREE.Vector3(),rm=new THREE.Matrix4(),la=new THREE.Vector3(),clip=new THREE.Vector4(),view=new THREE.Vector3(),tg=new THREE.Vector3(),q=new THREE.Vector4();
+  const mat=new THREE.ShaderMaterial({uniforms:{tDiffuse:{value:slots[0].rt.texture},tint:{value:new THREE.Color().setRGB(0.47,0.48,0.48)},textureMatrix:{value:slots[0].tm}},
     vertexShader:'uniform mat4 textureMatrix;varying vec4 vUv;void main(){vUv=textureMatrix*vec4(position,1.0);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:'uniform vec3 tint;uniform sampler2D tDiffuse;varying vec4 vUv;float bo(float a,float b){return a<0.5?(2.0*a*b):(1.0-2.0*(1.0-a)*(1.0-b));}void main(){vec4 base=texture2DProj(tDiffuse,vUv);gl_FragColor=vec4(bo(base.r,tint.r),bo(base.g,tint.g),bo(base.b,tint.b),1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'});
   const me=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
-  me.onBeforeRender=function(renderer,scn,camera){
+  function prepare(renderer,scn,camera,k){const S2=slots[k],tm=S2.tm;me.updateMatrixWorld(true);
     rp.setFromMatrixPosition(me.matrixWorld);cp.setFromMatrixPosition(camera.matrixWorld);rm.extractRotation(me.matrixWorld);n.set(0,0,1).applyMatrix4(rm);
     view.subVectors(rp,cp);if(view.dot(n)>0)return;view.reflect(n).negate().add(rp);
     rm.extractRotation(camera.matrixWorld);la.set(0,0,-1).applyMatrix4(rm).add(cp);tg.subVectors(rp,la).reflect(n).negate().add(rp);
@@ -269,11 +271,16 @@ function makeMirror(w,h,res){
     const P=vcam.projectionMatrix.elements;q.set((Math.sign(clip.x)+P[8])/P[0],(Math.sign(clip.y)+P[9])/P[5],-1,(1+P[10])/P[14]);clip.multiplyScalar(2/clip.dot(q));
     P[2]=clip.x;P[6]=clip.y;P[10]=clip.z+1;P[14]=clip.w;
     me.visible=false;const crt=renderer.getRenderTarget(),xe=renderer.xr.enabled,sa=renderer.shadowMap.autoUpdate;
-    renderer.xr.enabled=false;renderer.shadowMap.autoUpdate=false;renderer.setRenderTarget(rt);renderer.state.buffers.depth.setMask(true);
+    renderer.xr.enabled=false;renderer.shadowMap.autoUpdate=false;renderer.setRenderTarget(S2.rt);renderer.state.buffers.depth.setMask(true);
     if(renderer.autoClear===false)renderer.clear();renderer.render(scn,vcam);
-    renderer.xr.enabled=xe;renderer.shadowMap.autoUpdate=sa;renderer.setRenderTarget(crt);if(camera.viewport!==undefined)renderer.state.viewport(camera.viewport);me.visible=true;};
+    renderer.xr.enabled=xe;renderer.shadowMap.autoUpdate=sa;renderer.setRenderTarget(crt);me.visible=true;}
+  function use(k){mat.uniforms.tDiffuse.value=slots[k].rt.texture;mat.uniforms.textureMatrix.value=slots[k].tm;}
+  me.onBeforeRender=function(renderer,scn,camera){
+    if(renderer.xr.isPresenting){const cams=renderer.xr.getCamera().cameras;use(camera===cams[1]?1:0);return;}  // VR: textures were prepared before the frame
+    prepare(renderer,scn,camera,0);use(0);if(camera.viewport!==undefined)renderer.state.viewport(camera.viewport);};
+  me.userData.prepareXR=function(renderer,scn){const cams=renderer.xr.getCamera().cameras;for(let k=0;k<cams.length&&k<2;k++)prepare(renderer,scn,cams[k],k);};
   return me;}
-{const mm=makeMirror(50,80,768);mm.position.set(0.4,155,BZ);mm.rotation.y=Math.PI/2;scene.add(mm);}
+const mirror=makeMirror(50,80,768);mirror.position.set(0.4,155,BZ);mirror.rotation.y=Math.PI/2;scene.add(mirror);
 box(0,1,115,195,BZ-25.5,BZ-24.5,black,false);box(0,1,115,195,BZ+24.5,BZ+25.5,black,false);box(0,1,114.5,115.5,BZ-25.5,BZ+25.5,black,false);box(0,1,194.5,195.5,BZ-25.5,BZ+25.5,black,false);
 box(0,6,199,203,BZ-22,BZ+22,M({color:'#fff8e8',emissive:'#fff1d0',emissiveIntensity:0.9}),false);
 // WC box tiled in herringbone (faces: +x,-x,+y,-y,+z,-z)
@@ -475,10 +482,11 @@ function xrFrame(){
   if(aimCtrl){const o=new THREE.Vector3().setFromMatrixPosition(aimCtrl.matrixWorld);const d=new THREE.Vector3(0,0,-1).transformDirection(aimCtrl.matrixWorld);
     if(d.y<-0.02){const k=-o.y/d.y;if(k<6){const p=o.clone().addScaledVector(d,k);aimCtrl.userData.ray.scale.z=k;
       if(p.x>-0.05&&p.x<RW*S+0.05&&p.z>-0.05&&p.z<RD*S+0.05){aimHit={x:clampX(p.x),z:clampZ(p.z)};marker.position.set(aimHit.x,0.005,aimHit.z);marker.visible=true;}}}}
+  xr.updateCamera(camera);mirror.userData.prepareXR(renderer,scene);   // reflections first, then the stereo frame
   renderer.render(scene,camera);}
 function setVRScale(on){
   world.scale.setScalar(on?S:1);
-  camera.near=on?0.05:1;camera.far=on?150:15000;camera.updateProjectionMatrix();
+  camera.near=on?0.1:1;camera.far=on?150:15000;camera.updateProjectionMatrix();
   scene.fog.near=1200*(on?S:1);scene.fog.far=6500*(on?S:1);
   const k=on?S:1;Object.assign(dl.shadow.camera,{left:-200*k,right:200*k,top:200*k,bottom:-200*k,near:10*k,far:900*k});dl.shadow.camera.updateProjectionMatrix();
   spots3.forEach(sp=>{sp.shadow.camera.near=2*k;sp.shadow.camera.far=300*k;sp.shadow.camera.updateProjectionMatrix();});
